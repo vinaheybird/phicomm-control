@@ -91,20 +91,38 @@ adb -s 192.168.43.1:5555 shell am startservice -n com.phicomm.gemini/.service.Ph
 adb -s 192.168.43.1:5555 shell am start -n com.phicomm.gemini/.MainActivity >/dev/null 2>&1
 
 echo ""
-echo "-> Nhap Ten Wi-Fi nha ban (SSID):"
-read HOME_SSID </dev/tty 2>/dev/null || read HOME_SSID
-echo "-> Nhap Mat Khau Wi-Fi nha ban:"
+echo "==================================================================="
+echo "📶 CẤU HÌNH WI-FI NHÀ ĐỂ LOA PHICOMM R1 KẾT NỐI VÀO MẠNG"
+echo "==================================================================="
+echo ""
+
+# Vong lap dam bao Ten Wi-Fi khong bi de trong
+HOME_SSID=""
+while [ -z "$HOME_SSID" ]; do
+    printf "👉 Nhập TÊN Wi-Fi nhà bạn (SSID): "
+    read HOME_SSID </dev/tty 2>/dev/null || read HOME_SSID
+    if [ -z "$HOME_SSID" ]; then
+        echo "[!] Tên Wi-Fi không được để trống. Vui lòng nhập lại!"
+    fi
+done
+
+printf "👉 Nhập MẬT KHẨU Wi-Fi (Bấm ENTER nếu Wi-Fi không có mật khẩu): "
 read HOME_PASS </dev/tty 2>/dev/null || read HOME_PASS
 
-if [ -n "$HOME_SSID" ]; then
-    echo "[*] Dang gui thong tin Wi-Fi $HOME_SSID toi loa..."
-    adb -s 192.168.43.1:5555 shell cmd wifi connect-network "$HOME_SSID" wpa2 "$HOME_PASS" >/dev/null 2>&1
-    adb -s 192.168.43.1:5555 shell am broadcast -a com.phicomm.speaker.SET_WIFI --es ssid "$HOME_SSID" --es password "$HOME_PASS" >/dev/null 2>&1
-    echo ""
-    echo "==================================================================="
-    echo "  🎉 [HOÀN TẤT] ĐÃ CÀI XONG WEB CONTROLLER!"
-    echo "  Loa Phicomm R1 dang ket noi vao Wi-Fi nha ban ($HOME_SSID)."
-    echo "  Hay ket noi dien thoai lai Wi-Fi nha ban va truy cap:"
-    echo "  http://phicomm.local:8080"
-    echo "==================================================================="
-fi
+echo ""
+echo "[*] Đang gửi thông tin Wi-Fi '$HOME_SSID' sang loa Phicomm R1..."
+adb -s 192.168.43.1:5555 shell cmd wifi connect-network "$HOME_SSID" wpa2 "$HOME_PASS" >/dev/null 2>&1
+adb -s 192.168.43.1:5555 shell am broadcast -a com.phicomm.speaker.SET_WIFI --es ssid "$HOME_SSID" --es password "$HOME_PASS" >/dev/null 2>&1
+
+echo ""
+echo "==================================================================="
+echo "  🎉 [HOÀN TẤT CÀI ĐẶT WEB CONTROLLER!]"
+echo "-------------------------------------------------------------------"
+echo "  1. Loa Phicomm R1 đang tự kết nối vào Wi-Fi nhà bạn ($HOME_SSID)."
+echo "  2. Kết nối lại điện thoại vào Wi-Fi nhà bạn ($HOME_SSID)."
+echo "  3. Mở trình duyệt web bất kỳ và truy cập địa chỉ:"
+echo "     👉 http://phicomm.local:8080"
+echo "==================================================================="
+echo ""
+echo "Nhấn [ENTER] để kết thúc..."
+read FINISH </dev/tty 2>/dev/null || read FINISH
