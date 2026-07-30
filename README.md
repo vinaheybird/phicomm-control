@@ -44,17 +44,18 @@ Nếu bạn dùng iPhone hoặc Android, bạn có thể **cài file APK Web Con
 
 ### 🍏 Dành Cho iPhone / iPad (App iSH Shell) & 🤖 Android (Termux):
 
-1. **Kết nối Wi-Fi**: Kết nối điện thoại vào mạng Wi-Fi loa phát ra (tên **`Phicomm R1`** hoặc **`Phicomm_R1_xxxx`**).
-2. **Mở ứng dụng Terminal**:
+1. **Bật Internet (4G hoặc Wi-Fi nhà)** và mở ứng dụng Terminal:
    - Trên **iPhone/iPad**: Mở app **iSH Shell** (tải miễn phí trên App Store).
    - Trên **Android**: Mở app **Termux** (tải trên F-Droid / Play Store).
-3. **Chạy 1 dòng lệnh tự động duy nhất**:
+2. **Chạy 1 dòng lệnh tự động duy nhất**:
    ```bash
    curl -sSL https://raw.githubusercontent.com/vinaheybird/phicomm-control/main/install_tools/termux_install.sh | sh
    ```
-   *(Script sẽ tự động cài `adb`, tự tải file APK `PhicommGemini.apk` từ GitHub Release, nạp lên loa R1, tắt app rác và hỏi tên/mật khẩu Wi-Fi nhà bạn để gửi sang loa!)*
-
-4. Sau khi hoàn tất, kết nối lại Wi-Fi nhà và mở trình duyệt truy cập:
+3. **Quy trình tự động 2 bước của Script**:
+   - **Bước 1**: Script tải `adb` và file `PhicommGemini.apk` từ GitHub Release về điện thoại (cần 4G/Internet).
+   - **Bước 2**: Khi màn hình báo tạm dừng, bạn chuyển Wi-Fi điện thoại sang mạng của loa (**`Phicomm R1`**) rồi nhấn **[ENTER]**.
+   - Script sẽ tự kết nối ADB `192.168.43.1:5555`, đẩy APK lên loa, vô hiệu hóa toàn bộ app rác và hỏi Wi-Fi nhà để gửi sang loa!
+4. Kết nối lại điện thoại vào Wi-Fi nhà và mở trình duyệt truy cập:
    ```http
    http://phicomm.local:8080
    ```
