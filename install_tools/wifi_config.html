@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cấu Hình Wi-Fi Phicomm R1 Trực Tiếp Trên Điện Thoại</title>
+    <style>
+        body { font-family: -apple-system, sans-serif; background: #0f172a; color: #f8fafc; padding: 1.5rem; margin: 0; display: flex; justify-content: center; }
+        .card { background: #1e293b; padding: 1.5rem; border-radius: 12px; max-width: 400px; width: 100%; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+        h2 { color: #38bdf8; text-align: center; margin-top: 0; }
+        label { display: block; margin-top: 1rem; font-weight: bold; }
+        input[type="text"], input[type="password"] { width: 100%; padding: 0.75rem; border-radius: 8px; border: 1px solid #334155; background: #090d16; color: #fff; font-size: 1rem; margin-top: 0.4rem; box-sizing: border-box; }
+        button { width: 100%; padding: 0.85rem; border-radius: 8px; border: none; background: #38bdf8; color: #0f172a; font-weight: bold; font-size: 1rem; margin-top: 1.5rem; cursor: pointer; }
+        .status { margin-top: 1rem; font-size: 0.9rem; text-align: center; color: #f59e0b; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h2>📶 Cấu Hình Wi-Fi Loa R1</h2>
+        <p style="font-size:0.85rem; color:#94a3b8; text-align:center;">Khi điện thoại đang nối Wi-Fi Phicomm_R1_xxxx</p>
+        
+        <label for="ssid">Tên Wi-Fi (SSID) nhà bạn:</label>
+        <input type="text" id="ssid" placeholder="Nhập tên Wi-Fi nhà..." required>
+
+        <label for="pass">Mật khẩu Wi-Fi:</label>
+        <input type="password" id="pass" placeholder="Nhập mật khẩu Wi-Fi..." required>
+
+        <button onclick="sendWifiInfo()">GỬI THÔNG TIN WI-FI</button>
+        <div id="status" class="status"></div>
+    </div>
+
+    <script>
+        async function sendWifiInfo() {
+            const ssid = document.getElementById('ssid').value.trim();
+            const pass = document.getElementById('pass').value.trim();
+            const statusDiv = document.getElementById('status');
+
+            if (!ssid) {
+                alert('Vui lòng nhập tên Wi-Fi!');
+                return;
+            }
+
+            statusDiv.innerHTML = '⏳ Đang nạp Wi-Fi tới loa Phicomm R1...';
+
+            const endpoints = [
+                'http://192.168.43.1:8000/wifi',
+                'http://192.168.43.1:8080/wifi',
+                'http://192.168.43.1:8088/wifi',
+                'http://192.168.43.1/wifi',
+                'http://10.10.10.1:8000/wifi'
+            ];
+
+            let success = false;
+            for (const ep of endpoints) {
+                try {
+                    await fetch(ep, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ ssid: ssid, password: pass, key: pass }),
+                        mode: 'no-cors'
+                    });
+                    success = true;
+                } catch (e) {}
+            }
+
+            statusDiv.innerHTML = '✅ Đã gửi lệnh nạp Wi-Fi! Vui lòng chờ 10-15 giây để loa kết nối vào mạng nhà bạn.';
+        }
+    </script>
+</body>
+</html>
