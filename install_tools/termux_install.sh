@@ -44,25 +44,29 @@ read DUMMY </dev/tty 2>/dev/null || read DUMMY
 echo ""
 echo "[3/4] Dang ket noi ADB toi loa Phicomm R1 (192.168.43.1:5555)..."
 
+# Khoi chay adb server truoc de tranh treo subshell trong iSH / Termux
+adb start-server >/dev/null 2>&1
 adb disconnect >/dev/null 2>&1
+
 CONNECTED=0
 RETRY=1
 
-while [ $RETRY -le 5 ]; do
-    echo "[*] Thu ket noi ADB toi loa (Lan $RETRY/5)..."
-    OUTPUT=$(adb connect 192.168.43.1:5555 2>&1)
-    if echo "$OUTPUT" | grep -q "connected"; then
+while [ $RETRY -le 6 ]; do
+    echo "[*] Thu ket noi ADB toi loa (Lan $RETRY/6)..."
+    adb connect 192.168.43.1:5555 >/dev/null 2>&1
+    sleep 2
+    DEV_STATUS=$(adb devices 2>/dev/null | grep "192.168.43.1:5555")
+    if echo "$DEV_STATUS" | grep -qE "device|connected"; then
         CONNECTED=1
         echo "[✅] Ket noi ADB thanh cong!"
         break
     fi
-    sleep 2
     RETRY=$((RETRY + 1))
 done
 
 if [ $CONNECTED -eq 0 ]; then
     echo "[!] Khong the ket noi toi loa R1 qua 192.168.43.1:5555."
-    echo "    Vui long kiem tra dien thoai da ket noi dung Wi-Fi Phicomm R1 chưa va thu lai!"
+    echo "    Vui long kiem tra dien thoai da ket noi dung Wi-Fi Phicomm R1 chua va thu lai!"
     exit 1
 fi
 
