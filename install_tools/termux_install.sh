@@ -16,11 +16,11 @@ if ! command -v adb >/dev/null 2>&1; then
 fi
 
 # Link GitHub Releases / Raw APK (Tu dong cap nhat)
-APK_URL="https://github.com/zkenz/phicomm/releases/download/v1.0.0/PhicommGemini.apk"
+APK_URL="https://github.com/vinaheybird/phicomm-control/releases/download/v1.0.0/PhicommGemini.apk"
 
 # Neu chua co file local, tu dong tai ve bang curl
 if [ ! -f "PhicommGemini.apk" ]; then
-    echo "[*] Chuc co file APK tai thu muc, đang tu dong tai PhicommGemini.apk tu GitHub..."
+    echo "[*] Chua co file APK tai thu muc, dang tu dong tai PhicommGemini.apk tu GitHub..."
     curl -sSL -o PhicommGemini.apk "$APK_URL" 2>/dev/null || wget -q -O PhicommGemini.apk "$APK_URL" 2>/dev/null
 fi
 
@@ -41,11 +41,11 @@ if [ -f "PhicommGemini.apk" ]; then
     adb -s 192.168.43.1:5555 push PhicommGemini.apk /data/local/tmp/PhicommGemini.apk
     adb -s 192.168.43.1:5555 shell pm install -r /data/local/tmp/PhicommGemini.apk
 else
-    echo "[!] Không tìm thấy file PhicommGemini.apk. Vui lòng tải file APK vào cùng thư mục!"
+    echo "[!] Khong tim thấy file PhicommGemini.apk. Vui long tai file APK va dat vao cung thu muc!"
 fi
 
 echo ""
-echo "[*] Cap quyền Bluetooth va khoi chay dich vu..."
+echo "[*] Cap quyen Bluetooth va khoi chay dich vu..."
 adb -s 192.168.43.1:5555 shell pm grant com.phicomm.gemini android.permission.BLUETOOTH >/dev/null 2>&1
 adb -s 192.168.43.1:5555 shell pm grant com.phicomm.gemini android.permission.BLUETOOTH_ADMIN >/dev/null 2>&1
 adb -s 192.168.43.1:5555 shell pm grant com.phicomm.gemini android.permission.ACCESS_FINE_LOCATION >/dev/null 2>&1
@@ -54,9 +54,9 @@ adb -s 192.168.43.1:5555 shell am start -n com.phicomm.gemini/.MainActivity >/de
 
 echo ""
 echo "-> Nhap Ten Wi-Fi nha ban (SSID):"
-read HOME_SSID
+read HOME_SSID </dev/tty 2>/dev/null || read HOME_SSID
 echo "-> Nhap Mat Khau Wi-Fi nha ban:"
-read HOME_PASS
+read HOME_PASS </dev/tty 2>/dev/null || read HOME_PASS
 
 if [ -n "$HOME_SSID" ]; then
     echo "[*] Dang gui thong tin Wi-Fi $HOME_SSID toi loa..."

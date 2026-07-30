@@ -42,54 +42,22 @@ Nếu bạn dùng iPhone hoặc Android, bạn có thể **cài file APK Web Con
 
 ---
 
-### 🍏 Dành Cho iPhone / iPad (Dùng App iSH Shell):
+### 🍏 Dành Cho iPhone / iPad (App iSH Shell) & 🤖 Android (Termux):
 
-1. **Kết nối Wi-Fi**: Kết nối iPhone vào mạng Wi-Fi loa phát ra (tên: **`Phicomm R1`** hoặc **`Phicomm_R1_xxxx`**).
-2. **Tải App iSH**: Mở App Store trên iPhone, tải ứng dụng miễn phí **iSH Shell**.
-3. **Cài công cụ ADB trên iPhone**: Mở iSH Shell và nhập:
+1. **Kết nối Wi-Fi**: Kết nối điện thoại vào mạng Wi-Fi loa phát ra (tên **`Phicomm R1`** hoặc **`Phicomm_R1_xxxx`**).
+2. **Mở ứng dụng Terminal**:
+   - Trên **iPhone/iPad**: Mở app **iSH Shell** (tải miễn phí trên App Store).
+   - Trên **Android**: Mở app **Termux** (tải trên F-Droid / Play Store).
+3. **Chạy 1 dòng lệnh tự động duy nhất**:
    ```bash
-   apk add android-tools curl
+   curl -sSL https://raw.githubusercontent.com/vinaheybird/phicomm-control/main/install_tools/termux_install.sh | sh
    ```
-4. **Kết nối ADB sang Loa R1**:
-   ```bash
-   adb connect 192.168.43.1:5555
-   ```
-5. **Nạp & Cài Đặt File APK Web Controller Lên Loa**:
-   - Nếu bạn có file `PhicommGemini.apk` trên iPhone:
-     ```bash
-     adb push PhicommGemini.apk /data/local/tmp/PhicommGemini.apk
-     adb shell pm install -r /data/local/tmp/PhicommGemini.apk
-     ```
-   - Cấp quyền & Khởi chạy dịch vụ trên loa:
-     ```bash
-     adb shell pm grant com.phicomm.gemini android.permission.BLUETOOTH
-     adb shell am startservice -n com.phicomm.gemini/.service.PhicommGeminiService
-     ```
-6. **Tắt app rác Phicomm**:
-   ```bash
-   adb shell pm hide com.phicomm.speaker.player
-   adb shell pm hide com.phicomm.speaker.device
-   ```
-7. **Gửi tên Wi-Fi nhà bạn sang loa**:
-   ```bash
-   adb shell cmd wifi connect-network "TÊN_WIFI_NHÀ" wpa2 "MẬT_KHẨU_WIFI"
-   ```
-8. Sau khi loa đã nối vào Wi-Fi nhà, iPhone kết nối lại Wi-Fi nhà và truy cập:
+   *(Script sẽ tự động cài `adb`, tự tải file APK `PhicommGemini.apk` từ GitHub Release, nạp lên loa R1, tắt app rác và hỏi tên/mật khẩu Wi-Fi nhà bạn để gửi sang loa!)*
+
+4. Sau khi hoàn tất, kết nối lại Wi-Fi nhà và mở trình duyệt truy cập:
    ```http
    http://phicomm.local:8080
    ```
-
----
-
-### 🤖 Dành Cho Điện Thoại Android (Dùng App Termux):
-
-1. Kết nối Wi-Fi điện thoại vào mạng Wi-Fi phát ra từ loa (**`Phicomm R1`**).
-2. Tải ứng dụng **Termux** từ F-Droid / Google Play.
-3. Mở Termux, copy file `install_tools` sang điện thoại và gõ:
-   ```bash
-   bash termux_install.sh
-   ```
-   *(Script tự động cài ADB, đẩy APK `PhicommGemini.apk` lên loa, khởi chạy dịch vụ ngầm, vô hiệu hóa app rác và cấu hình Wi-Fi nhà!)*
 
 ---
 
