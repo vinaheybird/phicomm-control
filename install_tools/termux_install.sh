@@ -1,13 +1,13 @@
-﻿#!/bin/sh
-# Termux / iSH Shell script to install Web Controller APK & provision Phicomm R1 Wi-Fi
+#!/bin/sh
+# Termux / iSH Shell script - install Web Controller APK & set Wi-Fi for Phicomm R1
 echo "==================================================================="
-echo "  CAI DAT WEB CONTROLLER LOA PHICOMM R1 QUA DIEN THOAI (TERMUX / ISH)"
+echo "  CAI DAT WEB CONTROLLER LOA PHICOMM R1 (TERMUX / ISH)"
 echo "==================================================================="
 echo ""
 
-# 1. Kiem tra va cai dat android-tools & curl
+# 1. Kiem tra va cai dat adb & curl
 if ! command -v adb >/dev/null 2>&1; then
-    echo "[1/4] Dang cai dat cong cu adb & curl..."
+    echo "[1/4] Dang cai dat adb & curl..."
     if command -v pkg >/dev/null 2>&1; then
         pkg install -y android-tools curl
     elif command -v apk >/dev/null 2>&1; then
@@ -18,16 +18,16 @@ fi
 # Link GitHub Release APK
 APK_URL="https://github.com/vinaheybird/phicomm-control/releases/download/v1.0.0/PhicommGemini.apk"
 
-# Tai file APK ve may
+# Tai file APK
 if [ ! -f "PhicommGemini.apk" ]; then
-    echo "[2/4] Dang tai PhicommGemini.apk tu GitHub Release..."
+    echo "[2/4] Dang tai PhicommGemini.apk tu GitHub..."
     curl -sSL -o PhicommGemini.apk "$APK_URL" 2>/dev/null || wget -q -O PhicommGemini.apk "$APK_URL" 2>/dev/null
 fi
 
 if [ -f "PhicommGemini.apk" ]; then
-    echo "[OK] Da tai xong file APK va cong cu cai dat!"
+    echo "[OK] Da tai xong file APK!"
 else
-    echo "[ERROR] Khong tai duoc file PhicommGemini.apk! Vui long kiem tra ket noi Internet/4G."
+    echo "[ERROR] Khong tai duoc PhicommGemini.apk! Kiem tra ket noi Internet/4G."
     exit 1
 fi
 
@@ -36,8 +36,8 @@ echo "-------------------------------------------------------------------"
 echo "BUOC TIEP THEO: KET NOI VAO WI-FI CUA LOA PHICOMM R1"
 echo "-------------------------------------------------------------------"
 echo "1. Vao Cai dat Wi-Fi tren dien thoai."
-echo "2. Ket noi vao Wi-Fi phat ra tu loa (Ten: Phicomm R1 hoac Phicomm_R1_xxxx)."
-echo "3. Quay lai day va nhan [ENTER] de tiep tuc cai dat..."
+echo "2. Ket noi vao Wi-Fi phat ra tu loa (Ten: Phicomm R1 / Phicomm_R1_xxxx)."
+echo "3. Quay lai day va nhan [ENTER] de tiep tuc..."
 echo "-------------------------------------------------------------------"
 read DUMMY </dev/tty 2>/dev/null || read DUMMY
 
@@ -49,13 +49,12 @@ adb disconnect >/dev/null 2>&1
 
 CONNECTED=0
 RETRY=1
-
-while [ $RETRY -le 6 ]; do
-    echo "[*] Thu ket noi ADB toi loa (Lan $RETRY/6)..."
+while [ "$RETRY" -le 6 ]; do
+    echo "[*] Thu ket noi ADB (Lan $RETRY/6)..."
     adb connect 192.168.43.1:5555 >/dev/null 2>&1
     sleep 2
-    DEV_STATUS=$(adb devices 2>/dev/null | grep "192.168.43.1:5555")
-    if echo "$DEV_STATUS" | grep -qE "device|connected"; then
+    DEV=$(adb devices 2>/dev/null | grep "192.168.43.1:5555")
+    if echo "$DEV" | grep -q "device"; then
         CONNECTED=1
         echo "[OK] Ket noi ADB thanh cong!"
         break
@@ -63,29 +62,30 @@ while [ $RETRY -le 6 ]; do
     RETRY=$((RETRY + 1))
 done
 
-if [ $CONNECTED -eq 0 ]; then
-    echo "[ERROR] Khong the ket noi toi loa R1 qua 192.168.43.1:5555."
-    echo "        Vui long kiem tra dien thoai da ket noi dung Wi-Fi Phicomm R1 chua va thu lai!"
+if [ "$CONNECTED" -eq 0 ]; then
+    echo "[ERROR] Khong the ket noi toi loa R1. Kiem tra da ket noi Wi-Fi Phicomm R1 chua!"
     exit 1
 fi
 
 echo ""
-echo "[4/4] Dang vo hieu hoa ung dung rac Phicomm..."
+echo "[4/4] Dang vo hieu hoa app rac va cai APK..."
 adb -s 192.168.43.1:5555 shell pm hide com.phicomm.speaker.player >/dev/null 2>&1
 adb -s 192.168.43.1:5555 shell pm hide com.phicomm.speaker.device >/dev/null 2>&1
 adb -s 192.168.43.1:5555 shell pm hide com.phicomm.speaker.airskill >/dev/null 2>&1
 adb -s 192.168.43.1:5555 shell pm hide com.phicomm.speaker.otaservice >/dev/null 2>&1
 
-echo ""
-echo "[*] Dang nap va cai dat PhicommGemini.apk len loa Phicomm R1..."
+echo "[*] Dang nap PhicommGemini.apk len loa..."
 adb -s 192.168.43.1:5555 push PhicommGemini.apk /data/local/tmp/PhicommGemini.apk
 adb -s 192.168.43.1:5555 shell pm install -r /data/local/tmp/PhicommGemini.apk
 
-# Re-connect ADB in case connection closed during install
+echo "[*] Dang ket noi lai ADB sau khi cai APK..."
+sleep 3
+adb disconnect >/dev/null 2>&1
+sleep 1
 adb connect 192.168.43.1:5555 >/dev/null 2>&1
+sleep 2
 
-echo ""
-echo "[*] Cap quyen Bluetooth va khoi chay dich vu..."
+echo "[*] Cap quyen va khoi chay dich vu..."
 adb -s 192.168.43.1:5555 shell pm grant com.phicomm.gemini android.permission.BLUETOOTH >/dev/null 2>&1
 adb -s 192.168.43.1:5555 shell pm grant com.phicomm.gemini android.permission.BLUETOOTH_ADMIN >/dev/null 2>&1
 adb -s 192.168.43.1:5555 shell pm grant com.phicomm.gemini android.permission.ACCESS_FINE_LOCATION >/dev/null 2>&1
@@ -94,7 +94,7 @@ adb -s 192.168.43.1:5555 shell am start -n com.phicomm.gemini/.MainActivity >/de
 
 echo ""
 echo "==================================================================="
-echo " CAU HINH WI-FI NHA DE LOA PHICOMM R1 KET NOI VAO MANG"
+echo "  CAU HINH WI-FI NHA CHO LOA PHICOMM R1"
 echo "==================================================================="
 echo ""
 
@@ -103,28 +103,27 @@ while [ -z "$HOME_SSID" ]; do
     printf "-> Nhap TEN Wi-Fi nha ban (SSID): "
     read HOME_SSID </dev/tty 2>/dev/null || read HOME_SSID
     if [ -z "$HOME_SSID" ]; then
-        echo "[!] Ten Wi-Fi khong duoc de trong. Vui long nhap lai!"
+        echo "[!] Ten Wi-Fi khong duoc de trong!"
     fi
 done
 
-printf "-> Nhap MAT KHAU Wi-Fi (Bam ENTER neu khong co mat khau): "
+printf "-> Nhap MAT KHAU Wi-Fi (bam ENTER neu khong co): "
 read HOME_PASS </dev/tty 2>/dev/null || read HOME_PASS
 
 echo ""
-echo "[*] Dang thiet lap Wi-Fi '$HOME_SSID' tren loa Phicomm R1..."
+echo "[*] Dang thiet lap Wi-Fi '$HOME_SSID' cho loa..."
 
-# 1. Kiem tra va dam bao ADB dung ket noi
+# Dam bao ADB van ket noi
 adb connect 192.168.43.1:5555 >/dev/null 2>&1
+sleep 1
 
-# 2. Dung wpa_cli de nhan Wi-Fi truc tiep tren Android 5.1/7.0 cua R1
+# Phuong phap 1: wpa_cli (Android 5.1 / 7.0)
 adb -s 192.168.43.1:5555 shell "wpa_cli -i wlan0 reconfigure" >/dev/null 2>&1
 adb -s 192.168.43.1:5555 shell "wpa_cli -i wlan0 remove_network all" >/dev/null 2>&1
-
-RAW_NID=$(adb -s 192.168.43.1:5555 shell "wpa_cli -i wlan0 add_network" 2>/dev/null)
-NID=$(echo "$RAW_NID" | grep -oE '^[0-9]+' | head -n 1)
-
+RAW=$(adb -s 192.168.43.1:5555 shell "wpa_cli -i wlan0 add_network" 2>/dev/null)
+NID=$(echo "$RAW" | tr -cd '0-9' | cut -c1)
 if [ -n "$NID" ]; then
-    echo "[+] wpa_cli: Da tao network ID $NID"
+    echo "[+] wpa_cli network ID: $NID"
     adb -s 192.168.43.1:5555 shell "wpa_cli -i wlan0 set_network $NID ssid '\"$HOME_SSID\"'" >/dev/null 2>&1
     if [ -n "$HOME_PASS" ]; then
         adb -s 192.168.43.1:5555 shell "wpa_cli -i wlan0 set_network $NID psk '\"$HOME_PASS\"'" >/dev/null 2>&1
@@ -136,7 +135,7 @@ if [ -n "$NID" ]; then
     adb -s 192.168.43.1:5555 shell "wpa_cli -i wlan0 select_network $NID" >/dev/null 2>&1
 fi
 
-# 3. Dung cmd wifi (Danh cho Android 7+)
+# Phuong phap 2: cmd wifi (Android 7+)
 adb -s 192.168.43.1:5555 shell "svc wifi enable" >/dev/null 2>&1
 if [ -n "$HOME_PASS" ]; then
     adb -s 192.168.43.1:5555 shell "cmd wifi connect-network '$HOME_SSID' wpa2 '$HOME_PASS'" >/dev/null 2>&1
@@ -144,33 +143,16 @@ else
     adb -s 192.168.43.1:5555 shell "cmd wifi connect-network '$HOME_SSID' open" >/dev/null 2>&1
 fi
 
-# 4. Gui Broadcast intent sang Phicomm System App & Gemini Service
+# Phuong phap 3: am broadcast
 adb -s 192.168.43.1:5555 shell am broadcast -a com.phicomm.speaker.SET_WIFI --es ssid "$HOME_SSID" --es password "$HOME_PASS" >/dev/null 2>&1
-adb -s 192.168.43.1:5555 shell am broadcast -a com.phicomm.gemini.SET_WIFI --es ssid "$HOME_SSID" --es password "$HOME_PASS" >/dev/null 2>&1
-
-# 5. Gui goi tin UDP Broadcast (Xiaozhi / Phicomm R1 AP Protocol - Port 10000 & 8000)
-if command -v python3 >/dev/null 2>&1; then
-    python3 -c "import socket,json; s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM); s.setsockopt(socket.SOL_SOCKET,socket.SO_BROADCAST,1); data=json.dumps({'ssid':'$HOME_SSID','password':'$HOME_PASS','key':'$HOME_PASS'}).encode(); s.sendto(data,('192.168.43.1',10000)); s.sendto(data,('192.168.43.1',8000)); s.sendto(data,('192.168.43.255',10000)); s.sendto(data,('192.168.43.255',8000))" 2>/dev/null || true
-elif command -v python >/dev/null 2>&1; then
-    python -c "import socket,json; s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM); s.setsockopt(socket.SOL_SOCKET,socket.SO_BROADCAST,1); data=json.dumps({'ssid':'$HOME_SSID','password':'$HOME_PASS','key':'$HOME_PASS'}).encode(); s.sendto(data,('192.168.43.1',10000)); s.sendto(data,('192.168.43.1',8000)); s.sendto(data,('192.168.43.255',10000)); s.sendto(data,('192.168.43.255',8000))" 2>/dev/null || true
-elif command -v nc >/dev/null 2>&1; then
-    echo "{\"ssid\":\"$HOME_SSID\",\"password\":\"$HOME_PASS\",\"key\":\"$HOME_PASS\"}" | nc -u -w1 192.168.43.1 10000 2>/dev/null || true
-    echo "{\"ssid\":\"$HOME_SSID\",\"password\":\"$HOME_PASS\",\"key\":\"$HOME_PASS\"}" | nc -u -w1 192.168.43.1 8000 2>/dev/null || true
-fi
-
-# 6. Gui HTTP Post (Web Config Endpoint)
-if command -v curl >/dev/null 2>&1; then
-    curl -s -m 2 -X POST "http://192.168.43.1:8080/wifi" -d "ssid=$HOME_SSID&password=$HOME_PASS" >/dev/null 2>&1 || true
-    curl -s -m 2 "http://192.168.43.1:8081/setwifi?ssid=$HOME_SSID&password=$HOME_PASS" >/dev/null 2>&1 || true
-fi
 
 echo ""
 echo "==================================================================="
-echo "  [HOAN TAT CAI DAT WEB CONTROLLER!]"
+echo "  [HOAN TAT!]"
 echo "-------------------------------------------------------------------"
-echo "  1. Loa Phicomm R1 dang tu ket noi vao Wi-Fi nha ban ($HOME_SSID)."
+echo "  1. Loa dang ket noi vao Wi-Fi: $HOME_SSID"
 echo "  2. Ket noi lai dien thoai vao Wi-Fi nha ban ($HOME_SSID)."
-echo "  3. Mo trinh duyiet web truy cap dia chi:"
+echo "  3. Mo trinh duyet web truy cap:"
 echo "     http://phicomm.local:8080"
 echo "==================================================================="
 echo ""
