@@ -133,7 +133,8 @@ sleep 1
 # Phuong phap 1: wpa_cli qua script file
 # Dung printf tung dong (khong dung heredoc - heredoc loi trong pipe mode cua busybox ash)
 # printf '%s' cho phep SSID/PASS co khoang trang va dau ngoac kep ma khong bi loi quote
-WS=/tmp/set_r1_wifi.sh
+# Dung thu muc hien tai thay vi /tmp de dam bao ghi duoc tren moi he dieu hanh
+WS="./set_r1_wifi.sh"
 printf '#!/system/bin/sh\n' > "$WS"
 printf 'wpa_cli -i wlan0 reconfigure\n' >> "$WS"
 printf 'wpa_cli -i wlan0 remove_network all\n' >> "$WS"
@@ -147,11 +148,13 @@ fi
 printf 'wpa_cli -i wlan0 enable_network $NID\n' >> "$WS"
 printf 'wpa_cli -i wlan0 save_config\n' >> "$WS"
 printf 'wpa_cli -i wlan0 select_network $NID\n' >> "$WS"
-printf 'echo "[wpa_cli OK] Network ID: $NID"\n' >> "$WS"
 
 if adb -s 192.168.43.1:5555 push "$WS" /data/local/tmp/set_r1_wifi.sh >/dev/null 2>&1; then
-    echo "[+] Dang chay wpa_cli script tren loa..."
-    adb -s 192.168.43.1:5555 shell "sh /data/local/tmp/set_r1_wifi.sh"
+    echo "[+] Dang chay wpa_cli tren loa (chay ngam, ADB khong bi treo)..."
+    # Chay bang nen (nohup &) de ADB tra ve ngay - tranh bi treo khi loa ngat ket noi
+    adb -s 192.168.43.1:5555 shell "nohup sh /data/local/tmp/set_r1_wifi.sh >/dev/null 2>&1 &" 2>/dev/null || \
+    adb -s 192.168.43.1:5555 shell "sh /data/local/tmp/set_r1_wifi.sh >/dev/null 2>&1 &" 2>/dev/null || true
+    sleep 3
 fi
 
 # Phuong phap 2: cmd wifi (Android 7+)
