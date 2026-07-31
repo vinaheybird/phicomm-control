@@ -78,18 +78,38 @@ echo "[*] Dang nap PhicommGemini.apk len loa..."
 adb -s 192.168.43.1:5555 push PhicommGemini.apk /data/local/tmp/PhicommGemini.apk
 adb -s 192.168.43.1:5555 shell pm install -r /data/local/tmp/PhicommGemini.apk
 
-echo "[*] Dang ket noi lai ADB sau khi cai APK..."
-sleep 3
+echo "[*] Doi ADB phuc hoi sau khi cai APK (10s)..."
+sleep 5
 adb disconnect >/dev/null 2>&1
-sleep 1
-adb connect 192.168.43.1:5555 >/dev/null 2>&1
 sleep 2
+adb connect 192.168.43.1:5555 >/dev/null 2>&1
+sleep 3
+
+# Kiem tra ADB reconnect
+RECONNECTED=0
+DEV2=$(adb devices 2>/dev/null | grep "192.168.43.1:5555")
+if echo "$DEV2" | grep -q "device"; then
+    RECONNECTED=1
+    echo "[OK] ADB da ket noi lai thanh cong!"
+else
+    echo "[!] ADB mat ket noi, thu lan 2..."
+    adb connect 192.168.43.1:5555 >/dev/null 2>&1
+    sleep 4
+    DEV3=$(adb devices 2>/dev/null | grep "192.168.43.1:5555")
+    if echo "$DEV3" | grep -q "device"; then
+        RECONNECTED=1
+        echo "[OK] ADB ket noi lai thanh cong (lan 2)!"
+    else
+        echo "[!] ADB van mat ket noi - cap quyen va Wi-Fi co the bi loi!"
+    fi
+fi
 
 echo "[*] Cap quyen va khoi chay dich vu..."
 adb -s 192.168.43.1:5555 shell pm grant com.phicomm.gemini android.permission.BLUETOOTH >/dev/null 2>&1
 adb -s 192.168.43.1:5555 shell pm grant com.phicomm.gemini android.permission.BLUETOOTH_ADMIN >/dev/null 2>&1
 adb -s 192.168.43.1:5555 shell pm grant com.phicomm.gemini android.permission.ACCESS_FINE_LOCATION >/dev/null 2>&1
 adb -s 192.168.43.1:5555 shell am startservice -n com.phicomm.gemini/.service.PhicommGeminiService >/dev/null 2>&1
+sleep 2
 adb -s 192.168.43.1:5555 shell am start -n com.phicomm.gemini/.MainActivity >/dev/null 2>&1
 
 echo ""
@@ -117,7 +137,7 @@ echo "[*] Dang thiet lap Wi-Fi '$HOME_SSID' cho loa..."
 adb connect 192.168.43.1:5555 >/dev/null 2>&1
 sleep 1
 
-# Phuong phap 1: wpa_cli (Android 5.1 / 7.0)
+# Phuong phap 1: wpa_cli (Android 5.1)
 adb -s 192.168.43.1:5555 shell "wpa_cli -i wlan0 reconfigure" >/dev/null 2>&1
 adb -s 192.168.43.1:5555 shell "wpa_cli -i wlan0 remove_network all" >/dev/null 2>&1
 RAW=$(adb -s 192.168.43.1:5555 shell "wpa_cli -i wlan0 add_network" 2>/dev/null)
@@ -133,6 +153,7 @@ if [ -n "$NID" ]; then
     adb -s 192.168.43.1:5555 shell "wpa_cli -i wlan0 enable_network $NID" >/dev/null 2>&1
     adb -s 192.168.43.1:5555 shell "wpa_cli -i wlan0 save_config" >/dev/null 2>&1
     adb -s 192.168.43.1:5555 shell "wpa_cli -i wlan0 select_network $NID" >/dev/null 2>&1
+    echo "[+] wpa_cli: Da gui lenh ket noi Wi-Fi!"
 fi
 
 # Phuong phap 2: cmd wifi (Android 7+)
@@ -146,14 +167,20 @@ fi
 # Phuong phap 3: am broadcast
 adb -s 192.168.43.1:5555 shell am broadcast -a com.phicomm.speaker.SET_WIFI --es ssid "$HOME_SSID" --es password "$HOME_PASS" >/dev/null 2>&1
 
+echo "[*] Doi loa ket noi Wi-Fi (15s)..."
+sleep 15
+
 echo ""
 echo "==================================================================="
 echo "  [HOAN TAT!]"
 echo "-------------------------------------------------------------------"
-echo "  1. Loa dang ket noi vao Wi-Fi: $HOME_SSID"
-echo "  2. Ket noi lai dien thoai vao Wi-Fi nha ban ($HOME_SSID)."
-echo "  3. Mo trinh duyet web truy cap:"
+echo "  Loa dang ket noi vao Wi-Fi: $HOME_SSID"
+echo ""
+echo "  BUOC TIEP THEO:"
+echo "  1. Ket noi dien thoai vao Wi-Fi nha ban ($HOME_SSID)."
+echo "  2. Mo trinh duyet, thu cac dia chi sau:"
 echo "     http://phicomm.local:8080"
+echo "     (Neu loi: vao router xem IP cua loa, truy cap http://[IP]:8080)"
 echo "==================================================================="
 echo ""
 echo "Nhan [ENTER] de ket thuc..."
