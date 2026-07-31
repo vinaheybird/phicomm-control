@@ -126,7 +126,9 @@ printf "-> Nhap MAT KHAU Wi-Fi (bam ENTER neu khong co): "
 read HOME_PASS </dev/tty 2>/dev/null || read HOME_PASS
 
 echo ""
-echo "[*] Dang thiet lap Wi-Fi '$HOME_SSID' cho loa..."
+echo "[*] Dang thiet lap Wi-Fi cho loa: $HOME_SSID"
+# SQ = ky tu single-quote, dung de truyen vao ADB shell ma khong bi loi busybox ash
+SQ="'"
 adb connect 192.168.43.1:5555 >/dev/null 2>&1
 sleep 1
 
@@ -138,7 +140,7 @@ WS="./set_r1_wifi.sh"
 printf '#!/system/bin/sh\n' > "$WS"
 printf 'wpa_cli -i wlan0 reconfigure\n' >> "$WS"
 printf 'wpa_cli -i wlan0 remove_network all\n' >> "$WS"
-printf "NID=\$(wpa_cli -i wlan0 add_network 2>/dev/null | tr -cd '0-9' | cut -c1)\n" >> "$WS"
+printf 'NID=$(wpa_cli -i wlan0 add_network 2>/dev/null | tr -cd 0-9 | cut -c1)\n' >> "$WS"
 printf 'wpa_cli -i wlan0 set_network $NID ssid "%s"\n' "$HOME_SSID" >> "$WS"
 if [ -n "$HOME_PASS" ]; then
     printf 'wpa_cli -i wlan0 set_network $NID psk "%s"\n' "$HOME_PASS" >> "$WS"
@@ -158,14 +160,15 @@ if adb -s 192.168.43.1:5555 push "$WS" /data/local/tmp/set_r1_wifi.sh >/dev/null
 fi
 
 # Phuong phap 2: cmd wifi (Android 7+)
+# Dung ${SQ} de inject ky tu single-quote vao trong double-quoted string (tranh bug busybox ash)
 if [ -n "$HOME_PASS" ]; then
-    adb -s 192.168.43.1:5555 shell "cmd wifi connect-network '$HOME_SSID' wpa2 '$HOME_PASS'" >/dev/null 2>&1
+    adb -s 192.168.43.1:5555 shell "cmd wifi connect-network ${SQ}${HOME_SSID}${SQ} wpa2 ${SQ}${HOME_PASS}${SQ}" >/dev/null 2>&1
 else
-    adb -s 192.168.43.1:5555 shell "cmd wifi connect-network '$HOME_SSID' open" >/dev/null 2>&1
+    adb -s 192.168.43.1:5555 shell "cmd wifi connect-network ${SQ}${HOME_SSID}${SQ} open" >/dev/null 2>&1
 fi
 
 # Phuong phap 3: am broadcast
-adb -s 192.168.43.1:5555 shell "am broadcast -a com.phicomm.speaker.SET_WIFI --es ssid '$HOME_SSID' --es password '$HOME_PASS'" >/dev/null 2>&1
+adb -s 192.168.43.1:5555 shell "am broadcast -a com.phicomm.speaker.SET_WIFI --es ssid ${SQ}${HOME_SSID}${SQ} --es password ${SQ}${HOME_PASS}${SQ}" >/dev/null 2>&1
 
 echo "[*] Doi loa ket noi Wi-Fi (15s)..."
 sleep 15
