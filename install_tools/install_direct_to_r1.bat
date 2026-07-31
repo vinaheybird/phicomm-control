@@ -1,24 +1,24 @@
-@echo off
+﻿@echo off
 chcp 65001 >nul
-title Công Cụ Nạp App Web Controller Bluetooth Lên Loa Phicomm R1 (Xiaozhi Method)
+title CÃ´ng Cá»¥ Náº¡p App Web Controller Bluetooth LÃªn Loa Phicomm R1 (Xiaozhi Method)
 cls
 echo ===================================================================
-echo   🔊 CÀI ĐẶT WEB CONTROLLER BLUETOOTH TRỰC TIẾP LÊN LOA (ADB 192.168.43.1)
+echo   ðŸ”Š CÃ€I Äáº¶T WEB CONTROLLER BLUETOOTH TRá»°C TIáº¾P LÃŠN LOA (ADB 192.168.43.1)
 echo ===================================================================
 echo.
-echo 📌 HƯỚNG DẪN:
-echo 1. Hãy kết nối Wi-Fi của máy tính vào mạng phát ra từ loa (tên: Phicomm R1 / Phicomm_R1_xxxx).
-echo 2. Ấn phím bất kỳ bên dưới để tự động nạp App Web Controller lên loa...
+echo ðŸ“Œ HÆ¯á»šNG DáºªN:
+echo 1. HÃ£y káº¿t ná»‘i Wi-Fi cá»§a mÃ¡y tÃ­nh vÃ o máº¡ng phÃ¡t ra tá»« loa (tÃªn: Phicomm R1 / Phicomm_R1_xxxx).
+echo 2. áº¤n phÃ­m báº¥t ká»³ bÃªn dÆ°á»›i Ä‘á»ƒ tá»± Ä‘á»™ng náº¡p App Web Controller lÃªn loa...
 echo.
 pause
 
 echo.
-echo [*] Đang kết nối ADB tới loa tại 192.168.43.1:5555...
+echo [*] Äang káº¿t ná»‘i ADB tá»›i loa táº¡i 192.168.43.1:5555...
 adb disconnect
 adb connect 192.168.43.1:5555
 
 echo.
-echo [*] Đang vô hiệu hóa các dịch vụ cũ và ứng dụng rác của Phicomm...
+echo [*] Äang vÃ´ hiá»‡u hÃ³a cÃ¡c dá»‹ch vá»¥ cÅ© vÃ  á»©ng dá»¥ng rÃ¡c cá»§a Phicomm...
 adb -s 192.168.43.1:5555 shell pm hide com.phicomm.speaker.player >nul 2>&1
 adb -s 192.168.43.1:5555 shell pm hide com.phicomm.speaker.device >nul 2>&1
 adb -s 192.168.43.1:5555 shell pm hide com.phicomm.speaker.airskill >nul 2>&1
@@ -27,36 +27,36 @@ adb -s 192.168.43.1:5555 shell pm hide com.phicomm.speaker.setup >nul 2>&1
 adb -s 192.168.43.1:5555 shell pm hide com.phicomm.speaker.voice >nul 2>&1
 
 echo.
-echo [*] Đang nạp file PhicommGemini.apk lên loa R1...
+echo [*] Äang náº¡p file PhicommGemini.apk lÃªn loa R1...
 adb -s 192.168.43.1:5555 push PhicommGemini.apk /data/local/tmp/PhicommGemini.apk
 adb -s 192.168.43.1:5555 shell pm install -r /data/local/tmp/PhicommGemini.apk
 
 echo.
-echo [*] Đang cấp đầy đủ quyền hệ thống và Bluetooth...
+echo [*] Äang cáº¥p Ä‘áº§y Ä‘á»§ quyá»n há»‡ thá»‘ng vÃ  Bluetooth...
 adb -s 192.168.43.1:5555 shell pm grant com.phicomm.gemini android.permission.BLUETOOTH >nul 2>&1
 adb -s 192.168.43.1:5555 shell pm grant com.phicomm.gemini android.permission.BLUETOOTH_ADMIN >nul 2>&1
 adb -s 192.168.43.1:5555 shell pm grant com.phicomm.gemini android.permission.ACCESS_FINE_LOCATION >nul 2>&1
 adb -s 192.168.43.1:5555 shell appops set com.phicomm.gemini SYSTEM_ALERT_WINDOW allow >nul 2>&1
 
 echo.
-echo [*] Đang khởi chạy Dịch vụ Controller trên loa Phicomm R1...
+echo [*] Äang khá»Ÿi cháº¡y Dá»‹ch vá»¥ Controller trÃªn loa Phicomm R1...
 adb -s 192.168.43.1:5555 shell am startservice -n com.phicomm.gemini/.service.PhicommGeminiService
 adb -s 192.168.43.1:5555 shell am start -n com.phicomm.gemini/.MainActivity
 
 echo.
 echo ===================================================================
-echo   🎉 THÀNH CÔNG! ĐÃ CÀI XONG WEB CONTROLLER LÊN LOA PHICOMM R1!
+echo   ðŸŽ‰ THÃ€NH CÃ”NG! ÄÃƒ CÃ€I XONG WEB CONTROLLER LÃŠN LOA PHICOMM R1!
 echo ===================================================================
 echo.
-echo 📌 NỐI WI-FI NHÀ CHO LOA:
-echo Nhập Tên & Mật khẩu Wi-Fi nhà bạn để loa tự kết nối vào mạng nhà:
+echo ðŸ“Œ Ná»I WI-FI NHÃ€ CHO LOA:
+echo Nháº­p TÃªn & Máº­t kháº©u Wi-Fi nhÃ  báº¡n Ä‘á»ƒ loa tá»± káº¿t ná»‘i vÃ o máº¡ng nhÃ :
 echo.
-set /p HOME_SSID="-> Nhập Tên Wi-Fi nhà bạn (SSID): "
-set /p HOME_PASS="-> Nhập Mật Khẩu Wi-Fi nhà bạn: "
+set /p HOME_SSID="-> Nháº­p TÃªn Wi-Fi nhÃ  báº¡n (SSID): "
+set /p HOME_PASS="-> Nháº­p Máº­t Kháº©u Wi-Fi nhÃ  báº¡n: "
 
 if not "%HOME_SSID%"=="" (
     echo.
-    echo [*] Đang gửi thông tin Wi-Fi %HOME_SSID% tới loa...
+    echo [*] Äang gá»­i thÃ´ng tin Wi-Fi %HOME_SSID% tá»›i loa...
     adb connect 192.168.43.1:5555 >nul 2>&1
     adb -s 192.168.43.1:5555 shell "svc wifi enable" >nul 2>&1
     adb -s 192.168.43.1:5555 shell cmd wifi connect-network "%HOME_SSID%" wpa2 "%HOME_PASS%" >nul 2>&1
@@ -68,9 +68,9 @@ if not "%HOME_SSID%"=="" (
 
 echo.
 echo ===================================================================
-echo   🎉 HOÀN TẤT!
-echo   Bây giờ mở Wi-Fi máy tính kết nối lại Wi-Fi nhà bạn và truy cập:
-echo   👉 http://phicomm.local:8080
+echo   ðŸŽ‰ HOÃ€N Táº¤T!
+echo   BÃ¢y giá» má»Ÿ Wi-Fi mÃ¡y tÃ­nh káº¿t ná»‘i láº¡i Wi-Fi nhÃ  báº¡n vÃ  truy cáº­p:
+echo   ðŸ‘‰ http://phicomm.local:8080
 echo ===================================================================
 echo.
 pause

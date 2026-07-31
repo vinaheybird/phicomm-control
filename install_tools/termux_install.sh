@@ -1,4 +1,4 @@
-#!/bin/sh
+﻿#!/bin/sh
 # Termux / iSH Shell script to install Web Controller APK & provision Phicomm R1 Wi-Fi
 echo "==================================================================="
 echo "  CAI DAT WEB CONTROLLER LOA PHICOMM R1 QUA DIEN THOAI (TERMUX / ISH)"
