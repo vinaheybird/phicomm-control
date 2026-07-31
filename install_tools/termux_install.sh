@@ -81,6 +81,9 @@ echo "[*] Dang nap va cai dat PhicommGemini.apk len loa Phicomm R1..."
 adb -s 192.168.43.1:5555 push PhicommGemini.apk /data/local/tmp/PhicommGemini.apk
 adb -s 192.168.43.1:5555 shell pm install -r /data/local/tmp/PhicommGemini.apk
 
+# Re-connect ADB in case connection closed during install
+adb connect 192.168.43.1:5555 >/dev/null 2>&1
+
 echo ""
 echo "[*] Cap quyen Bluetooth va khoi chay dich vu..."
 adb -s 192.168.43.1:5555 shell pm grant com.phicomm.gemini android.permission.BLUETOOTH >/dev/null 2>&1
@@ -110,10 +113,18 @@ read HOME_PASS </dev/tty 2>/dev/null || read HOME_PASS
 echo ""
 echo "[*] Dang thiet lap Wi-Fi '$HOME_SSID' tren loa Phicomm R1..."
 
-# 1. Dung wpa_cli de nhan Wi-Fi truc tiep tren Android 5.1/7.0 cua R1
+# 1. Kiem tra va dam bao ADB dung ket noi
+adb connect 192.168.43.1:5555 >/dev/null 2>&1
+
+# 2. Dung wpa_cli de nhan Wi-Fi truc tiep tren Android 5.1/7.0 cua R1
+adb -s 192.168.43.1:5555 shell "wpa_cli -i wlan0 reconfigure" >/dev/null 2>&1
 adb -s 192.168.43.1:5555 shell "wpa_cli -i wlan0 remove_network all" >/dev/null 2>&1
-NID=$(adb -s 192.168.43.1:5555 shell "wpa_cli -i wlan0 add_network" 2>/dev/null | tr -d '\r\n')
+
+RAW_NID=$(adb -s 192.168.43.1:5555 shell "wpa_cli -i wlan0 add_network" 2>/dev/null)
+NID=$(echo "$RAW_NID" | grep -oE '^[0-9]+' | head -n 1)
+
 if [ -n "$NID" ]; then
+    echo "[+] wpa_cli: Da tao network ID $NID"
     adb -s 192.168.43.1:5555 shell "wpa_cli -i wlan0 set_network $NID ssid '\"$HOME_SSID\"'" >/dev/null 2>&1
     if [ -n "$HOME_PASS" ]; then
         adb -s 192.168.43.1:5555 shell "wpa_cli -i wlan0 set_network $NID psk '\"$HOME_PASS\"'" >/dev/null 2>&1
@@ -125,8 +136,33 @@ if [ -n "$NID" ]; then
     adb -s 192.168.43.1:5555 shell "wpa_cli -i wlan0 select_network $NID" >/dev/null 2>&1
 fi
 
-# 2. Gui broadcast intent sang ung dung Phicomm R1
+# 3. Dung cmd wifi (Danh cho Android 7+)
+adb -s 192.168.43.1:5555 shell "svc wifi enable" >/dev/null 2>&1
+if [ -n "$HOME_PASS" ]; then
+    adb -s 192.168.43.1:5555 shell "cmd wifi connect-network '$HOME_SSID' wpa2 '$HOME_PASS'" >/dev/null 2>&1
+else
+    adb -s 192.168.43.1:5555 shell "cmd wifi connect-network '$HOME_SSID' open" >/dev/null 2>&1
+fi
+
+# 4. Gui Broadcast intent sang Phicomm System App & Gemini Service
 adb -s 192.168.43.1:5555 shell am broadcast -a com.phicomm.speaker.SET_WIFI --es ssid "$HOME_SSID" --es password "$HOME_PASS" >/dev/null 2>&1
+adb -s 192.168.43.1:5555 shell am broadcast -a com.phicomm.gemini.SET_WIFI --es ssid "$HOME_SSID" --es password "$HOME_PASS" >/dev/null 2>&1
+
+# 5. Gui goi tin UDP Broadcast (Xiaozhi / Phicomm R1 AP Protocol - Port 10000 & 8000)
+if command -v python3 >/dev/null 2>&1; then
+    python3 -c "import socket,json; s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM); s.setsockopt(socket.SOL_SOCKET,socket.SO_BROADCAST,1); data=json.dumps({'ssid':'$HOME_SSID','password':'$HOME_PASS','key':'$HOME_PASS'}).encode(); s.sendto(data,('192.168.43.1',10000)); s.sendto(data,('192.168.43.1',8000)); s.sendto(data,('192.168.43.255',10000)); s.sendto(data,('192.168.43.255',8000))" 2>/dev/null || true
+elif command -v python >/dev/null 2>&1; then
+    python -c "import socket,json; s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM); s.setsockopt(socket.SOL_SOCKET,socket.SO_BROADCAST,1); data=json.dumps({'ssid':'$HOME_SSID','password':'$HOME_PASS','key':'$HOME_PASS'}).encode(); s.sendto(data,('192.168.43.1',10000)); s.sendto(data,('192.168.43.1',8000)); s.sendto(data,('192.168.43.255',10000)); s.sendto(data,('192.168.43.255',8000))" 2>/dev/null || true
+elif command -v nc >/dev/null 2>&1; then
+    echo "{\"ssid\":\"$HOME_SSID\",\"password\":\"$HOME_PASS\",\"key\":\"$HOME_PASS\"}" | nc -u -w1 192.168.43.1 10000 2>/dev/null || true
+    echo "{\"ssid\":\"$HOME_SSID\",\"password\":\"$HOME_PASS\",\"key\":\"$HOME_PASS\"}" | nc -u -w1 192.168.43.1 8000 2>/dev/null || true
+fi
+
+# 6. Gui HTTP Post (Web Config Endpoint)
+if command -v curl >/dev/null 2>&1; then
+    curl -s -m 2 -X POST "http://192.168.43.1:8080/wifi" -d "ssid=$HOME_SSID&password=$HOME_PASS" >/dev/null 2>&1 || true
+    curl -s -m 2 "http://192.168.43.1:8081/setwifi?ssid=$HOME_SSID&password=$HOME_PASS" >/dev/null 2>&1 || true
+fi
 
 echo ""
 echo "==================================================================="

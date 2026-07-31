@@ -57,8 +57,13 @@ set /p HOME_PASS="-> Nhập Mật Khẩu Wi-Fi nhà bạn: "
 if not "%HOME_SSID%"=="" (
     echo.
     echo [*] Đang gửi thông tin Wi-Fi %HOME_SSID% tới loa...
+    adb connect 192.168.43.1:5555 >nul 2>&1
+    adb -s 192.168.43.1:5555 shell "svc wifi enable" >nul 2>&1
     adb -s 192.168.43.1:5555 shell cmd wifi connect-network "%HOME_SSID%" wpa2 "%HOME_PASS%" >nul 2>&1
     adb -s 192.168.43.1:5555 shell am broadcast -a com.phicomm.speaker.SET_WIFI --es ssid "%HOME_SSID%" --es password "%HOME_PASS%" >nul 2>&1
+    adb -s 192.168.43.1:5555 shell am broadcast -a com.phicomm.gemini.SET_WIFI --es ssid "%HOME_SSID%" --es password "%HOME_PASS%" >nul 2>&1
+    
+    powershell -NoProfile -ExecutionPolicy Bypass -Command "$client = New-Object System.Net.Sockets.UdpClient; $jsonObj = @{ ssid = '%HOME_SSID%'; password = '%HOME_PASS%'; key = '%HOME_PASS%' } | ConvertTo-Json -Compress; $bytes = [System.Text.Encoding]::UTF8.GetBytes($jsonObj); $endPoints = @(New-Object System.Net.IPEndPoint([System.Net.IPAddress]::Parse('192.168.43.1'), 10000), New-Object System.Net.IPEndPoint([System.Net.IPAddress]::Parse('192.168.43.1'), 8000), New-Object System.Net.IPEndPoint([System.Net.IPAddress]::Parse('192.168.43.255'), 10000), New-Object System.Net.IPEndPoint([System.Net.IPAddress]::Parse('192.168.43.255'), 8000)); foreach ($ep in $endPoints) { try { $client.Send($bytes, $bytes.Length, $ep) } catch {} }; $client.Close()" >nul 2>&1
 )
 
 echo.
