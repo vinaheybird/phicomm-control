@@ -1,5 +1,13 @@
 #!/bin/sh
 # Termux / iSH Shell script - install Web Controller APK & set Wi-Fi for Phicomm R1
+
+# Neu dang chay qua pipe (stdin khong phai terminal), luu script va chay lai truc tiep tu file
+if [ ! -t 0 ] && [ -z "$R1_SCRIPT_RUNNING" ]; then
+    export R1_SCRIPT_RUNNING=1
+    cat > ./run_r1_install.sh
+    exec sh ./run_r1_install.sh "$@" < /dev/tty 2>/dev/null || exec sh ./run_r1_install.sh "$@"
+fi
+
 echo "==================================================================="
 echo "  CAI DAT WEB CONTROLLER LOA PHICOMM R1 (TERMUX / ISH)"
 echo "==================================================================="
@@ -136,7 +144,7 @@ echo "[*] Dang thiet lap Wi-Fi cho loa..."
 adb connect 192.168.43.1:5555 >/dev/null 2>&1
 sleep 1
 
-# Ghi SSID va Password vao file text de push sang loa (tranh 100% truyen argument nhay cap tren adb shell)
+# Ghi SSID va Password vao file text de push sang loa
 echo "$HOME_SSID" > ./wifi_info.txt
 echo "$HOME_PASS" >> ./wifi_info.txt
 
