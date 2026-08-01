@@ -153,21 +153,18 @@ printf "%s\n" "$HOME_PASS" >> ./wifi_info.txt
 adb -s 192.168.43.1:5555 push ./wifi_info.txt /data/local/tmp/wifi_info.txt >/dev/null 2>&1
 
 if [ -f "set_r1_wifi.sh" ]; then
-    echo "[*] Dang nap script va kich hoat Wi-Fi tren loa..."
+    echo "[*] Dang nap script va thuc thi cau hinh Wi-Fi tren loa..."
     adb -s 192.168.43.1:5555 push set_r1_wifi.sh /data/local/tmp/set_r1_wifi.sh >/dev/null 2>&1
     adb -s 192.168.43.1:5555 shell chmod 755 /data/local/tmp/set_r1_wifi.sh >/dev/null 2>&1
-    adb -s 192.168.43.1:5555 shell /data/local/tmp/set_r1_wifi.sh >/dev/null 2>&1 &
-    echo "[OK] Da gui thong tin Wi-Fi sang loa thanh cong!"
+    # Thuc thi dong bo (khong dung &) de dam bao script chay va tao file log day du
+    adb -s 192.168.43.1:5555 shell /data/local/tmp/set_r1_wifi.sh
+    echo "[OK] Da thuc thi script Wi-Fi tren loa!"
 fi
 
-echo "[*] Doi loa ket noi Wi-Fi (12s)..."
-sleep 12
-
 echo ""
-echo "[*] NHAT KY KET NOI WI-FI TU LOA PHICOMM R1:"
+echo "[*] NHAT KY KET NOI WI-FI TRUOC TIEP TU LOA PHICOMM R1:"
 echo "-------------------------------------------------------------------"
-adb connect 192.168.43.1:5555 >/dev/null 2>&1
-adb -s 192.168.43.1:5555 shell cat /data/local/tmp/wifi_setup.log 2>/dev/null || echo "[!] Loa da ngat ket noi AP va dang ket noi sang Wi-Fi nha!"
+adb -s 192.168.43.1:5555 shell cat /data/local/tmp/wifi_setup.log
 echo "-------------------------------------------------------------------"
 
 echo ""
