@@ -29,6 +29,12 @@ else
     exit 1
 fi
 
+# Tai script set_r1_wifi.sh tu GitHub
+WIFI_SCRIPT_URL="https://raw.githubusercontent.com/vinaheybird/phicomm-control/main/install_tools/set_r1_wifi.sh"
+if [ ! -f "set_r1_wifi.sh" ]; then
+    curl -sSL -o set_r1_wifi.sh "$WIFI_SCRIPT_URL" 2>/dev/null || wget -q -O set_r1_wifi.sh "$WIFI_SCRIPT_URL" 2>/dev/null
+fi
+
 echo ""
 echo "-------------------------------------------------------------------"
 echo "BUOC TIEP THEO: KET NOI VAO WI-FI CUA LOA PHICOMM R1"
@@ -130,55 +136,14 @@ echo "[*] Dang thiet lap Wi-Fi cho loa: $HOME_SSID"
 adb connect 192.168.43.1:5555 >/dev/null 2>&1
 sleep 1
 
-# Tao script Wi-Fi dung printf (KHONG DUNG cat << EOF de khong bi cat stdin khi chay qua pipe curl|sh)
-WS="./set_r1_wifi.sh"
-rm -f "$WS"
-printf '%s\n' '#!/system/bin/sh' > "$WS"
-printf '%s\n' 'SSID="$1"' >> "$WS"
-printf '%s\n' 'PASS="$2"' >> "$WS"
-printf '%s\n' 'CONF="/data/misc/wifi/wpa_supplicant.conf"' >> "$WS"
-printf '%s\n' 'if [ -f "$CONF" ]; then' >> "$WS"
-printf '%s\n' '    echo "" >> "$CONF"' >> "$WS"
-printf '%s\n' '    echo "network={" >> "$CONF"' >> "$WS"
-printf '%s\n' '    echo "    ssid=\"$SSID\"" >> "$CONF"' >> "$WS"
-printf '%s\n' '    if [ -n "$PASS" ]; then' >> "$WS"
-printf '%s\n' '        echo "    psk=\"$PASS\"" >> "$CONF"' >> "$WS"
-printf '%s\n' '        echo "    key_mgmt=WPA-PSK"' >> "$WS"
-printf '%s\n' '    else' >> "$WS"
-printf '%s\n' '        echo "    key_mgmt=NONE"' >> "$WS"
-printf '%s\n' '    fi' >> "$WS"
-printf '%s\n' '    echo "    priority=10"' >> "$WS"
-printf '%s\n' '    echo "}" >> "$CONF"' >> "$WS"
-printf '%s\n' '    chmod 660 "$CONF"' >> "$WS"
-printf '%s\n' '    chown system:wifi "$CONF"' >> "$WS"
-printf '%s\n' 'fi' >> "$WS"
-printf '%s\n' 'wpa_cli -i wlan0 reconfigure >/dev/null 2>&1' >> "$WS"
-printf '%s\n' 'wpa_cli -i wlan0 remove_network all >/dev/null 2>&1' >> "$WS"
-printf '%s\n' 'NID=$(wpa_cli -i wlan0 add_network 2>/dev/null | tr -cd 0-9 | cut -c1)' >> "$WS"
-printf '%s\n' 'if [ -n "$NID" ]; then' >> "$WS"
-printf '%s\n' '    wpa_cli -i wlan0 set_network $NID ssid "\"$SSID\"" >/dev/null 2>&1' >> "$WS"
-printf '%s\n' '    if [ -n "$PASS" ]; then' >> "$WS"
-printf '%s\n' '        wpa_cli -i wlan0 set_network $NID psk "\"$PASS\"" >/dev/null 2>&1' >> "$WS"
-printf '%s\n' '    else' >> "$WS"
-printf '%s\n' '        wpa_cli -i wlan0 set_network $NID key_mgmt NONE >/dev/null 2>&1' >> "$WS"
-printf '%s\n' '    fi' >> "$WS"
-printf '%s\n' '    wpa_cli -i wlan0 enable_network $NID >/dev/null 2>&1' >> "$WS"
-printf '%s\n' '    wpa_cli -i wlan0 save_config >/dev/null 2>&1' >> "$WS"
-printf '%s\n' '    wpa_cli -i wlan0 select_network $NID >/dev/null 2>&1' >> "$WS"
-printf '%s\n' 'fi' >> "$WS"
-printf '%s\n' 'svc wifi disable >/dev/null 2>&1' >> "$WS"
-printf '%s\n' 'sleep 1' >> "$WS"
-printf '%s\n' 'svc wifi enable >/dev/null 2>&1' >> "$WS"
-printf '%s\n' 'am broadcast -a com.phicomm.speaker.SET_WIFI --es ssid "$SSID" --es password "$PASS" >/dev/null 2>&1' >> "$WS"
-printf '%s\n' 'am broadcast -a com.phicomm.gemini.SET_WIFI --es ssid "$SSID" --es password "$PASS" >/dev/null 2>&1' >> "$WS"
-
-echo "[*] Dang nap script va kich hoat Wi-Fi tren loa..."
-if adb -s 192.168.43.1:5555 push ./set_r1_wifi.sh /data/local/tmp/set_r1_wifi.sh ; then
+if [ -f "set_r1_wifi.sh" ]; then
+    echo "[*] Dang nap script va kich hoat Wi-Fi tren loa..."
+    adb -s 192.168.43.1:5555 push set_r1_wifi.sh /data/local/tmp/set_r1_wifi.sh >/dev/null 2>&1
     adb -s 192.168.43.1:5555 shell "chmod 755 /data/local/tmp/set_r1_wifi.sh" >/dev/null 2>&1
     adb -s 192.168.43.1:5555 shell "/data/local/tmp/set_r1_wifi.sh \"$HOME_SSID\" \"$HOME_PASS\" &" >/dev/null 2>&1 || true
-    echo "[OK] Da gui thong tin Wi-Fi '$HOME_SSID' sang loa thành cong!"
+    echo "[OK] Da gui thong tin Wi-Fi '$HOME_SSID' sang loa thanh cong!"
 else
-    echo "[!] ADB push thiet lap Wi-Fi khong thanh cong."
+    echo "[!] Khong tim thay set_r1_wifi.sh, thu gui qua cmd wifi..."
 fi
 
 # Fallback: GUI cmd wifi & broadcast tu ADB ngoai
