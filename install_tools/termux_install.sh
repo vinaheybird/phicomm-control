@@ -131,6 +131,7 @@ HOME_SSID=""
 while [ -z "$HOME_SSID" ]; do
     printf "-> Nhap TEN Wi-Fi nha ban (SSID): "
     read HOME_SSID </dev/tty 2>/dev/null || read HOME_SSID
+    HOME_SSID=$(echo "$HOME_SSID" | tr -d '\r\n')
     if [ -z "$HOME_SSID" ]; then
         echo "[!] Ten Wi-Fi khong duoc de trong!"
     fi
@@ -138,15 +139,16 @@ done
 
 printf "-> Nhap MAT KHAU Wi-Fi (bam ENTER neu khong co): "
 read HOME_PASS </dev/tty 2>/dev/null || read HOME_PASS
+HOME_PASS=$(echo "$HOME_PASS" | tr -d '\r\n')
 
 echo ""
 echo "[*] Dang thiet lap Wi-Fi cho loa..."
 adb connect 192.168.43.1:5555 >/dev/null 2>&1
 sleep 1
 
-# Ghi SSID va Password vao file text de push sang loa
-echo "$HOME_SSID" > ./wifi_info.txt
-echo "$HOME_PASS" >> ./wifi_info.txt
+# Ghi SSID va Password vao file text (sach khong co \r)
+printf "%s\n" "$HOME_SSID" > ./wifi_info.txt
+printf "%s\n" "$HOME_PASS" >> ./wifi_info.txt
 
 adb -s 192.168.43.1:5555 push ./wifi_info.txt /data/local/tmp/wifi_info.txt >/dev/null 2>&1
 
