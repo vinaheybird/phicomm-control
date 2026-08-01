@@ -6,6 +6,19 @@ LOG="/data/local/tmp/wifi_setup.log"
 rm -f "$LOG"
 echo "=== LOG CAU HINH WI-FI PHICOMM R1 ===" > "$LOG"
 
+# ---- Tự nâng quyền ROOT nếu chưa có (su / su 0) ----
+if [ "$(id -u 2>/dev/null)" != "0" ] && [ -z "$R1_SU_RUNNING" ]; then
+    export R1_SU_RUNNING=1
+    echo "[*] Unprivileged user ($(id -u 2>/dev/null)) - Attempting ROOT elevation via su..." >> "$LOG"
+    if command -v su >/dev/null 2>&1 || [ -x /system/xbin/su ] || [ -x /system/bin/su ]; then
+        exec su 0 sh "$0" "$@" 2>/dev/null || exec su -c "sh $0 $@" 2>/dev/null || exec su sh "$0" "$@" 2>/dev/null
+    else
+        echo "[WARNING] su binary not found! Running as normal user." >> "$LOG"
+    fi
+fi
+
+echo "[*] Running as UID: $(id -u 2>/dev/null)" >> "$LOG"
+
 # ---- Doc SSID / Password (dung read builtin + fd, khong dung head/sed) ----
 SSID=""
 PASS=""
@@ -27,6 +40,14 @@ if [ -z "$SSID" ]; then
 fi
 
 # ================================================================
+# METHOD A: Gửi Android Broadcasts (Phicomm / Gemini / Stock ROM)
+# ================================================================
+echo "[*] Gui Broadcasts ket noi Wi-Fi..." >> "$LOG"
+am broadcast -a com.phicomm.speaker.SET_WIFI --es ssid "$SSID" --es password "$PASS" >> "$LOG" 2>&1
+am broadcast -a com.phicomm.gemini.SET_WIFI --es ssid "$SSID" --es password "$PASS" >> "$LOG" 2>&1
+cmd wifi connect-network "$SSID" wpa2 "$PASS" >> "$LOG" 2>&1
+
+# ================================================================
 # DIAGNOSTIC: Tim vi tri wpa_supplicant.conf thuc su
 # ================================================================
 echo "" >> "$LOG"
@@ -35,28 +56,23 @@ echo "[D] /data/misc thu muc:" >> "$LOG"
 ls /data/misc/ >> "$LOG" 2>&1
 echo "[D] /data thu muc:" >> "$LOG"
 ls /data/ >> "$LOG" 2>&1
-echo "[D] init.rc wpa_supplicant:" >> "$LOG"
-grep -i "wpa_supplicant" /init.rc >> "$LOG" 2>&1 || echo "(khong tim thay trong /init.rc)" >> "$LOG"
 echo "[D] /system/etc/wifi:" >> "$LOG"
 ls /system/etc/wifi/ >> "$LOG" 2>&1 || echo "(khong co)" >> "$LOG"
 echo "--- END DIAGNOSTIC ---" >> "$LOG"
 echo "" >> "$LOG"
 
 # ================================================================
-# BUOC 1: Xac dinh va ghi wpa_supplicant.conf
-# Thu tao /data/misc/wifi neu chua co
+# METHOD B: Ghi wpa_supplicant.conf
 # ================================================================
 CONF="/data/misc/wifi/wpa_supplicant.conf"
 TMP_CONF="/data/local/tmp/wpa_new.conf"
 
 echo "[1/3] Xu ly wpa_supplicant.conf..." >> "$LOG"
 
-# Tao thu muc neu chua co (thay vi bao loi va bo qua)
+# Tao thu muc neu chua co
 if [ ! -d /data/misc/wifi ]; then
     echo "[*] /data/misc/wifi chua co - dang tao..." >> "$LOG"
-    mkdir /data/misc 2>/dev/null
-    mkdir /data/misc/wifi 2>/dev/null
-    mkdir /data/misc/wifi/sockets 2>/dev/null
+    mkdir -p /data/misc/wifi/sockets 2>/dev/null
     chmod 771 /data/misc/wifi 2>/dev/null
     chmod 771 /data/misc/wifi/sockets 2>/dev/null
     chown system:wifi /data/misc/wifi 2>/dev/null
@@ -65,7 +81,7 @@ if [ ! -d /data/misc/wifi ]; then
     ls -la /data/misc/wifi/ >> "$LOG" 2>&1
 fi
 
-# Doc ctrl_interface header tu file hien tai (dung while/case thay grep)
+# Doc ctrl_interface header tu file hien tai
 CTRL_IFACE=""
 if [ -f "$CONF" ]; then
     while read line; do
@@ -86,7 +102,7 @@ echo "[*] ctrl_interface: $CTRL_IFACE" >> "$LOG"
 svc wifi disable >> "$LOG" 2>&1
 sleep 2
 
-# Tao file config moi - chi dung echo tung dong
+# Tao file config moi
 echo "$CTRL_IFACE" > "$TMP_CONF"
 echo "update_config=1" >> "$TMP_CONF"
 echo "" >> "$TMP_CONF"
@@ -132,7 +148,7 @@ echo "[*] Trang thai sau svc wifi enable:" >> "$LOG"
 netcfg 2>/dev/null >> "$LOG"
 
 # ================================================================
-# BUOC 2: wpa_cli (neu co)
+# METHOD C: wpa_cli (neu co)
 # ================================================================
 echo "" >> "$LOG"
 echo "[2/3] Thu wpa_cli..." >> "$LOG"
@@ -168,7 +184,7 @@ else
 fi
 
 # ================================================================
-# BUOC 3: Kiem tra IP
+# Kiem tra IP
 # ================================================================
 echo "" >> "$LOG"
 echo "[3/3] Kiem tra IP..." >> "$LOG"

@@ -251,18 +251,25 @@ fi
 
 # Push va chay script set_r1_wifi.sh tren loa
 echo "[*] Dang nap script va thuc thi cau hinh Wi-Fi tren loa..."
+adb -s 192.168.43.1:5555 root > /dev/null 2>&1
 adb -s 192.168.43.1:5555 push ./set_r1_wifi.sh /data/local/tmp/set_r1_wifi.sh > /dev/null 2>&1
 adb -s 192.168.43.1:5555 shell chmod 755 /data/local/tmp/set_r1_wifi.sh > /dev/null 2>&1
 
-# Chay dong bo de lay duoc log day du
-adb -s 192.168.43.1:5555 shell /data/local/tmp/set_r1_wifi.sh
+# Gui broadcast Android dong thoi tu ngoai ADB (dam bao moi ROM Phicomm/Gemini deu nhan)
+SSID_ESC=$(printf '%s' "$HOME_SSID" | sed "s/'/'\\\\''/g")
+PASS_ESC=$(printf '%s' "$HOME_PASS" | sed "s/'/'\\\\''/g")
+adb -s 192.168.43.1:5555 shell "am broadcast -a com.phicomm.speaker.SET_WIFI --es ssid '$SSID_ESC' --es password '$PASS_ESC'" > /dev/null 2>&1
+adb -s 192.168.43.1:5555 shell "am broadcast -a com.phicomm.gemini.SET_WIFI --es ssid '$SSID_ESC' --es password '$PASS_ESC'" > /dev/null 2>&1
+
+# Chay script Wi-Fi voi quyen ROOT (su 0 / su -c / sh)
+adb -s 192.168.43.1:5555 shell "su 0 sh /data/local/tmp/set_r1_wifi.sh || su -c sh /data/local/tmp/set_r1_wifi.sh || sh /data/local/tmp/set_r1_wifi.sh"
 echo "[OK] Da thuc thi script Wi-Fi tren loa!"
 
 # Lay log tu loa
 echo ""
 echo "[*] NHAT KY KET NOI WI-FI TRUC TIEP TU LOA PHICOMM R1:"
 echo "-------------------------------------------------------------------"
-adb -s 192.168.43.1:5555 shell cat /data/local/tmp/wifi_setup.log
+adb -s 192.168.43.1:5555 shell "su 0 cat /data/local/tmp/wifi_setup.log || cat /data/local/tmp/wifi_setup.log"
 echo "-------------------------------------------------------------------"
 
 # ================================================================
