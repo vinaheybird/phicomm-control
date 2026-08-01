@@ -132,25 +132,22 @@ printf "-> Nhap MAT KHAU Wi-Fi (bam ENTER neu khong co): "
 read HOME_PASS </dev/tty 2>/dev/null || read HOME_PASS
 
 echo ""
-echo "[*] Dang thiet lap Wi-Fi cho loa: $HOME_SSID"
+echo "[*] Dang thiet lap Wi-Fi cho loa..."
 adb connect 192.168.43.1:5555 >/dev/null 2>&1
 sleep 1
+
+# Ghi SSID va Password vao file text de push sang loa (tranh 100% truyen argument nhay cap tren adb shell)
+echo "$HOME_SSID" > ./wifi_info.txt
+echo "$HOME_PASS" >> ./wifi_info.txt
+
+adb -s 192.168.43.1:5555 push ./wifi_info.txt /data/local/tmp/wifi_info.txt >/dev/null 2>&1
 
 if [ -f "set_r1_wifi.sh" ]; then
     echo "[*] Dang nap script va kich hoat Wi-Fi tren loa..."
     adb -s 192.168.43.1:5555 push set_r1_wifi.sh /data/local/tmp/set_r1_wifi.sh >/dev/null 2>&1
-    adb -s 192.168.43.1:5555 shell "chmod 755 /data/local/tmp/set_r1_wifi.sh" >/dev/null 2>&1
-    adb -s 192.168.43.1:5555 shell "/data/local/tmp/set_r1_wifi.sh \"$HOME_SSID\" \"$HOME_PASS\" &" >/dev/null 2>&1 || true
-    echo "[OK] Da gui thong tin Wi-Fi '$HOME_SSID' sang loa thanh cong!"
-else
-    echo "[!] Khong tim thay set_r1_wifi.sh, thu gui qua cmd wifi..."
-fi
-
-# Fallback: GUI cmd wifi & broadcast tu ADB ngoai
-if [ -n "$HOME_PASS" ]; then
-    adb -s 192.168.43.1:5555 shell "cmd wifi connect-network \"$HOME_SSID\" wpa2 \"$HOME_PASS\"" >/dev/null 2>&1 || true
-else
-    adb -s 192.168.43.1:5555 shell "cmd wifi connect-network \"$HOME_SSID\" open" >/dev/null 2>&1 || true
+    adb -s 192.168.43.1:5555 shell chmod 755 /data/local/tmp/set_r1_wifi.sh >/dev/null 2>&1
+    adb -s 192.168.43.1:5555 shell /data/local/tmp/set_r1_wifi.sh >/dev/null 2>&1 &
+    echo "[OK] Da gui thong tin Wi-Fi sang loa thanh cong!"
 fi
 
 echo "[*] Doi loa ket noi Wi-Fi (15s)..."

@@ -1,7 +1,13 @@
 #!/system/bin/sh
 # Shell script running inside Phicomm R1 Android speaker to configure Wi-Fi
-SSID="$1"
-PASS="$2"
+
+if [ -f /data/local/tmp/wifi_info.txt ]; then
+    SSID=$(head -n 1 /data/local/tmp/wifi_info.txt)
+    PASS=$(sed -n '2p' /data/local/tmp/wifi_info.txt)
+else
+    SSID="$1"
+    PASS="$2"
+fi
 
 if [ -z "$SSID" ]; then
     exit 1
