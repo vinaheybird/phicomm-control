@@ -48,14 +48,19 @@ Nếu bạn dùng iPhone hoặc Android, bạn có thể **cài file APK Web Con
    - Trên **iPhone/iPad**: Mở app **iSH Shell** (tải miễn phí trên App Store).
    - Trên **Android**: Mở app **Termux** (tải trên F-Droid / Play Store).
 2. **Chạy 1 dòng lệnh tự động duy nhất**:
-   - Dùng lệnh `curl` (hoặc `wget` mặc định trên iSH):
-     ```bash
-     apk add curl 2>/dev/null; curl -sSL https://raw.githubusercontent.com/vinaheybird/phicomm-control/main/install_tools/termux_install.sh | sh
-     ```
-   - Hoặc nếu iSH chưa có `curl`, có thể gõ bằng `wget`:
-     ```bash
-     wget -qO- https://raw.githubusercontent.com/vinaheybird/phicomm-control/main/install_tools/termux_install.sh | sh
-     ```
+
+   **Cách A — Dùng `curl` (khuyên dùng cho cả iSH & Termux):**
+   ```bash
+   apk add curl 2>/dev/null; curl -sSL https://raw.githubusercontent.com/vinaheybird/phicomm-control/main/install_tools/termux_install.sh | sh
+   ```
+
+   **Cách B — Dùng `wget` 2 bước (nếu không có curl):**
+   ```bash
+   wget -O install.sh https://raw.githubusercontent.com/vinaheybird/phicomm-control/main/install_tools/termux_install.sh && sh install.sh
+   ```
+
+   > ⚠️ **Lưu ý:** `wget -qO- URL | sh` (dạng pipe trực tiếp) **không hoạt động** trên iSH vì busybox wget không follow redirect HTTPS đúng cách khi piped. Hãy dùng Cách A hoặc Cách B ở trên.
+
 3. **Quy trình tự động 2 bước của Script**:
    - **Bước 1**: Script tải `adb` và file `PhicommGemini.apk` từ GitHub Release về điện thoại (cần 4G/Internet).
    - **Bước 2**: Khi màn hình báo tạm dừng, bạn chuyển Wi-Fi điện thoại sang mạng của loa (**`Phicomm R1`**) rồi nhấn **[ENTER]**.
@@ -66,6 +71,7 @@ Nếu bạn dùng iPhone hoặc Android, bạn có thể **cài file APK Web Con
    ```
 
 ---
+
 
 ## 💻 HƯỚNG DẪN CÀI ĐẶT BẰNG MÁY TÍNH (WINDOWS / MAC)
 
