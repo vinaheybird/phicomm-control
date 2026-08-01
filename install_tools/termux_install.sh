@@ -218,12 +218,35 @@ if ! echo "$DEV_CHECK" | grep -q "device$"; then
     exit 1
 fi
 
+# Xoa file cu tren loa TRUOC khi push moi (tranh dung lai file cu rong/sai)
+adb -s 192.168.43.1:5555 shell "rm -f /data/local/tmp/wifi_info.txt" > /dev/null 2>&1
+
 # Ghi SSID va Password vao file text (sach khong co \r)
 printf "%s\n" "$HOME_SSID" > ./wifi_info.txt
 printf "%s\n" "$HOME_PASS" >> ./wifi_info.txt
 
-# Push file thong tin WiFi len loa
-adb -s 192.168.43.1:5555 push ./wifi_info.txt /data/local/tmp/wifi_info.txt > /dev/null 2>&1
+# Push file thong tin WiFi len loa (hien thi ket qua, khong suppress)
+echo "[*] Dang push wifi_info.txt len loa..."
+adb -s 192.168.43.1:5555 push ./wifi_info.txt /data/local/tmp/wifi_info.txt
+WIFI_PUSH=$?
+
+if [ "$WIFI_PUSH" -ne 0 ]; then
+    echo "[!] Push wifi_info.txt that bai - thu ghi truc tiep qua adb shell..."
+    # Fallback: ghi tung dong qua adb shell (khong can file transfer)
+    # Escape dau ngoac don trong SSID/PASS de tranh loi shell quoting
+    SSID_ESC=$(printf '%s' "$HOME_SSID" | sed "s/'/'\\\\''/g")
+    PASS_ESC=$(printf '%s' "$HOME_PASS" | sed "s/'/'\\\\''/g")
+    adb -s 192.168.43.1:5555 shell "printf '%s\n' '$SSID_ESC' > /data/local/tmp/wifi_info.txt"
+    adb -s 192.168.43.1:5555 shell "printf '%s\n' '$PASS_ESC' >> /data/local/tmp/wifi_info.txt"
+fi
+
+# Xac nhan SSID da len loa thanh cong
+VERIFY_SSID=$(adb -s 192.168.43.1:5555 shell "head -n 1 /data/local/tmp/wifi_info.txt" 2>/dev/null | tr -d '\r\n')
+echo "[*] Xac nhan SSID tren loa: '$VERIFY_SSID'"
+if [ -z "$VERIFY_SSID" ]; then
+    echo "[ERROR] Khong ghi duoc WiFi info len loa! Ket noi ADB bi mat."
+    exit 1
+fi
 
 # Push va chay script set_r1_wifi.sh tren loa
 echo "[*] Dang nap script va thuc thi cau hinh Wi-Fi tren loa..."
