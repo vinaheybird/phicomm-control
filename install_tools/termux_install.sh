@@ -251,7 +251,6 @@ fi
 
 # Push va chay script set_r1_wifi.sh tren loa
 echo "[*] Dang nap script va thuc thi cau hinh Wi-Fi tren loa..."
-adb -s 192.168.43.1:5555 root > /dev/null 2>&1
 adb -s 192.168.43.1:5555 push ./set_r1_wifi.sh /data/local/tmp/set_r1_wifi.sh > /dev/null 2>&1
 adb -s 192.168.43.1:5555 shell chmod 755 /data/local/tmp/set_r1_wifi.sh > /dev/null 2>&1
 
