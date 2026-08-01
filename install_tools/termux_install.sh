@@ -127,48 +127,70 @@ read HOME_PASS </dev/tty 2>/dev/null || read HOME_PASS
 
 echo ""
 echo "[*] Dang thiet lap Wi-Fi cho loa: $HOME_SSID"
-# SQ = ky tu single-quote, dung de truyen vao ADB shell ma khong bi loi busybox ash
-SQ="'"
 adb connect 192.168.43.1:5555 >/dev/null 2>&1
 sleep 1
 
-# Phuong phap 1: wpa_cli qua script file
-# Dung printf tung dong (khong dung heredoc - heredoc loi trong pipe mode cua busybox ash)
-# printf '%s' cho phep SSID/PASS co khoang trang va dau ngoac kep ma khong bi loi quote
-# Dung thu muc hien tai thay vi /tmp de dam bao ghi duoc tren moi he dieu hanh
-WS="./set_r1_wifi.sh"
-printf '#!/system/bin/sh\n' > "$WS"
-printf 'wpa_cli -i wlan0 reconfigure\n' >> "$WS"
-printf 'wpa_cli -i wlan0 remove_network all\n' >> "$WS"
-printf 'NID=$(wpa_cli -i wlan0 add_network 2>/dev/null | tr -cd 0-9 | cut -c1)\n' >> "$WS"
-printf 'wpa_cli -i wlan0 set_network $NID ssid "%s"\n' "$HOME_SSID" >> "$WS"
+# Tao script cai dat Wi-Fi chay truc tiep tren loa (Phuong phap chuan cua Xiaozhi/R1 Community)
+# Dung cat << 'EOF' (Single quoted EOF) de khong parse bat ky quote/variable nao tren iSH/Termux
+cat << 'EOF' > ./set_r1_wifi.sh
+#!/system/bin/sh
+SSID="$1"
+PASS="$2"
+
+CONF="/data/misc/wifi/wpa_supplicant.conf"
+if [ -f "$CONF" ]; then
+    echo "" >> "$CONF"
+    echo "network={" >> "$CONF"
+    echo "    ssid=\"$SSID\"" >> "$CONF"
+    if [ -n "$PASS" ]; then
+        echo "    psk=\"$PASS\"" >> "$CONF"
+        echo "    key_mgmt=WPA-PSK" >> "$CONF"
+    else
+        echo "    key_mgmt=NONE" >> "$CONF"
+    fi
+    echo "    priority=10" >> "$CONF"
+    echo "}" >> "$CONF"
+    chmod 660 "$CONF"
+    chown system:wifi "$CONF"
+fi
+
+wpa_cli -i wlan0 reconfigure >/dev/null 2>&1
+wpa_cli -i wlan0 remove_network all >/dev/null 2>&1
+NID=$(wpa_cli -i wlan0 add_network 2>/dev/null | tr -cd '0-9' | cut -c1)
+if [ -n "$NID" ]; then
+    wpa_cli -i wlan0 set_network $NID ssid "\"$SSID\"" >/dev/null 2>&1
+    if [ -n "$PASS" ]; then
+        wpa_cli -i wlan0 set_network $NID psk "\"$PASS\"" >/dev/null 2>&1
+    else
+        wpa_cli -i wlan0 set_network $NID key_mgmt NONE >/dev/null 2>&1
+    fi
+    wpa_cli -i wlan0 enable_network $NID >/dev/null 2>&1
+    wpa_cli -i wlan0 save_config >/dev/null 2>&1
+    wpa_cli -i wlan0 select_network $NID >/dev/null 2>&1
+fi
+
+svc wifi disable >/dev/null 2>&1
+sleep 1
+svc wifi enable >/dev/null 2>&1
+
+am broadcast -a com.phicomm.speaker.SET_WIFI --es ssid "$SSID" --es password "$PASS" >/dev/null 2>&1
+am broadcast -a com.phicomm.gemini.SET_WIFI --es ssid "$SSID" --es password "$PASS" >/dev/null 2>&1
+EOF
+
+# Push script len loa va thuc thi qua ADB
+if adb -s 192.168.43.1:5555 push ./set_r1_wifi.sh /data/local/tmp/set_r1_wifi.sh >/dev/null 2>&1; then
+    echo "[+] Da gui cau hinh Wi-Fi sang loa Phicomm R1..."
+    adb -s 192.168.43.1:5555 shell "chmod 755 /data/local/tmp/set_r1_wifi.sh" >/dev/null 2>&1
+    adb -s 192.168.43.1:5555 shell "/data/local/tmp/set_r1_wifi.sh \"$HOME_SSID\" \"$HOME_PASS\" &" >/dev/null 2>&1 || true
+    sleep 2
+fi
+
+# Fallback: GUI cmd wifi & broadcast tu ADB ngoai
 if [ -n "$HOME_PASS" ]; then
-    printf 'wpa_cli -i wlan0 set_network $NID psk "%s"\n' "$HOME_PASS" >> "$WS"
+    adb -s 192.168.43.1:5555 shell "cmd wifi connect-network \"$HOME_SSID\" wpa2 \"$HOME_PASS\"" >/dev/null 2>&1 || true
 else
-    printf 'wpa_cli -i wlan0 set_network $NID key_mgmt NONE\n' >> "$WS"
+    adb -s 192.168.43.1:5555 shell "cmd wifi connect-network \"$HOME_SSID\" open" >/dev/null 2>&1 || true
 fi
-printf 'wpa_cli -i wlan0 enable_network $NID\n' >> "$WS"
-printf 'wpa_cli -i wlan0 save_config\n' >> "$WS"
-printf 'wpa_cli -i wlan0 select_network $NID\n' >> "$WS"
-
-if adb -s 192.168.43.1:5555 push "$WS" /data/local/tmp/set_r1_wifi.sh >/dev/null 2>&1; then
-    echo "[+] Dang chay wpa_cli tren loa (chay ngam, ADB khong bi treo)..."
-    # Chay bang nen (nohup &) de ADB tra ve ngay - tranh bi treo khi loa ngat ket noi
-    adb -s 192.168.43.1:5555 shell "nohup sh /data/local/tmp/set_r1_wifi.sh >/dev/null 2>&1 &" 2>/dev/null || \
-    adb -s 192.168.43.1:5555 shell "sh /data/local/tmp/set_r1_wifi.sh >/dev/null 2>&1 &" 2>/dev/null || true
-    sleep 3
-fi
-
-# Phuong phap 2: cmd wifi (Android 7+)
-# Dung ${SQ} de inject ky tu single-quote vao trong double-quoted string (tranh bug busybox ash)
-if [ -n "$HOME_PASS" ]; then
-    adb -s 192.168.43.1:5555 shell "cmd wifi connect-network ${SQ}${HOME_SSID}${SQ} wpa2 ${SQ}${HOME_PASS}${SQ}" >/dev/null 2>&1
-else
-    adb -s 192.168.43.1:5555 shell "cmd wifi connect-network ${SQ}${HOME_SSID}${SQ} open" >/dev/null 2>&1
-fi
-
-# Phuong phap 3: am broadcast
-adb -s 192.168.43.1:5555 shell "am broadcast -a com.phicomm.speaker.SET_WIFI --es ssid ${SQ}${HOME_SSID}${SQ} --es password ${SQ}${HOME_PASS}${SQ}" >/dev/null 2>&1
 
 echo "[*] Doi loa ket noi Wi-Fi (15s)..."
 sleep 15
