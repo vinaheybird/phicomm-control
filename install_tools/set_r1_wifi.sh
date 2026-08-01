@@ -1,25 +1,25 @@
 #!/system/bin/sh
-# Script chay BEN TRONG loa Phicomm R1 (Android 5.1 stripped ROM)
+# Script chay BEN TRONG loa Phicomm R1 (Android 5.1 - ho tro ca Root & Unrooted)
 # Chi dung shell builtin - KHONG dung head/tr/sed/wc/awk
 
 LOG="/data/local/tmp/wifi_setup.log"
-rm -f "$LOG"
+rm -f "$LOG" 2>/dev/null
 echo "=== LOG CAU HINH WI-FI PHICOMM R1 ===" > "$LOG"
 
-# ---- Tự nâng quyền ROOT nếu chưa có (su / su 0) ----
-if [ "$(id -u 2>/dev/null)" != "0" ] && [ -z "$R1_SU_RUNNING" ]; then
+# ---- Kiem tra quyen Root ----
+IS_ROOT=0
+if [ "$(id -u 2>/dev/null)" = "0" ]; then
+    IS_ROOT=1
+elif [ -z "$R1_SU_RUNNING" ]; then
     export R1_SU_RUNNING=1
-    echo "[*] Unprivileged user ($(id -u 2>/dev/null)) - Attempting ROOT elevation via su..." >> "$LOG"
     if command -v su >/dev/null 2>&1 || [ -x /system/xbin/su ] || [ -x /system/bin/su ]; then
         exec su 0 sh "$0" "$@" 2>/dev/null || exec su -c "sh $0 $@" 2>/dev/null || exec su sh "$0" "$@" 2>/dev/null
-    else
-        echo "[WARNING] su binary not found! Running as normal user." >> "$LOG"
     fi
 fi
 
-echo "[*] Running as UID: $(id -u 2>/dev/null)" >> "$LOG"
+echo "[*] UID hien tai: $(id -u 2>/dev/null) (IsRoot=$IS_ROOT)" >> "$LOG"
 
-# ---- Doc SSID / Password (dung read builtin + fd, khong dung head/sed) ----
+# ---- Doc SSID / Password tu file wifi_info.txt ----
 SSID=""
 PASS=""
 if [ -f /data/local/tmp/wifi_info.txt ]; then
@@ -40,119 +40,70 @@ if [ -z "$SSID" ]; then
 fi
 
 # ================================================================
-# METHOD A: Gửi Android Broadcasts (Phicomm / Gemini / Stock ROM)
+# METHOD 1: Public Broadcast Intents (Hoat dong khong can Root)
 # ================================================================
-echo "[*] Gui Broadcasts ket noi Wi-Fi..." >> "$LOG"
-am broadcast -a com.phicomm.speaker.SET_WIFI --es ssid "$SSID" --es password "$PASS" >> "$LOG" 2>&1
+echo "[1/4] Gui Public Android Broadcasts..." >> "$LOG"
+svc wifi enable >> "$LOG" 2>&1
+am broadcast -a com.phicomm.speaker.SET_WIFI --es ssid "$SSID" --es password "$PASS" --es key "$PASS" >> "$LOG" 2>&1
+am broadcast -a com.phicomm.speaker.ACTION_WIFI_SET --es ssid "$SSID" --es password "$PASS" >> "$LOG" 2>&1
 am broadcast -a com.phicomm.gemini.SET_WIFI --es ssid "$SSID" --es password "$PASS" >> "$LOG" 2>&1
 cmd wifi connect-network "$SSID" wpa2 "$PASS" >> "$LOG" 2>&1
 
 # ================================================================
-# DIAGNOSTIC: Tim vi tri wpa_supplicant.conf thuc su
-# ================================================================
-echo "" >> "$LOG"
-echo "--- DIAGNOSTIC ---" >> "$LOG"
-echo "[D] /data/misc thu muc:" >> "$LOG"
-ls /data/misc/ >> "$LOG" 2>&1
-echo "[D] /data thu muc:" >> "$LOG"
-ls /data/ >> "$LOG" 2>&1
-echo "[D] /system/etc/wifi:" >> "$LOG"
-ls /system/etc/wifi/ >> "$LOG" 2>&1 || echo "(khong co)" >> "$LOG"
-echo "--- END DIAGNOSTIC ---" >> "$LOG"
-echo "" >> "$LOG"
-
-# ================================================================
-# METHOD B: Ghi wpa_supplicant.conf
+# METHOD 2: Ghi wpa_supplicant.conf (Chi thuc hien neu co ROOT)
 # ================================================================
 CONF="/data/misc/wifi/wpa_supplicant.conf"
 TMP_CONF="/data/local/tmp/wpa_new.conf"
 
-echo "[1/3] Xu ly wpa_supplicant.conf..." >> "$LOG"
+if [ "$IS_ROOT" -eq 1 ]; then
+    echo "[2/4] Dang ghi wpa_supplicant.conf (Quyen ROOT)..." >> "$LOG"
+    CTRL_IFACE=""
+    if [ -f "$CONF" ]; then
+        while read line; do
+            case "$line" in
+                ctrl_interface=*) CTRL_IFACE="$line"; break;;
+            esac
+        done < "$CONF"
+    fi
 
-# Tao thu muc neu chua co
-if [ ! -d /data/misc/wifi ]; then
-    echo "[*] /data/misc/wifi chua co - dang tao..." >> "$LOG"
-    mkdir -p /data/misc/wifi/sockets 2>/dev/null
-    chmod 771 /data/misc/wifi 2>/dev/null
-    chmod 771 /data/misc/wifi/sockets 2>/dev/null
-    chown system:wifi /data/misc/wifi 2>/dev/null
-    chown system:wifi /data/misc/wifi/sockets 2>/dev/null
-    echo "[*] Ket qua tao thu muc: $?" >> "$LOG"
-    ls -la /data/misc/wifi/ >> "$LOG" 2>&1
-fi
+    if [ -z "$CTRL_IFACE" ]; then
+        CTRL_IFACE="ctrl_interface=DIR=/data/misc/wifi/sockets GROUP=wifi"
+    fi
 
-# Doc ctrl_interface header tu file hien tai
-CTRL_IFACE=""
-if [ -f "$CONF" ]; then
-    while read line; do
-        case "$line" in
-            ctrl_interface=*) CTRL_IFACE="$line"; break;;
-        esac
-    done < "$CONF"
-    cp "$CONF" /data/local/tmp/wpa_supplicant.conf.bak 2>/dev/null
-fi
+    svc wifi disable >> "$LOG" 2>&1
+    sleep 2
 
-if [ -z "$CTRL_IFACE" ]; then
-    CTRL_IFACE="ctrl_interface=DIR=/data/misc/wifi/sockets GROUP=wifi"
-    echo "[*] Dung ctrl_interface mac dinh Android 5.1" >> "$LOG"
-fi
-echo "[*] ctrl_interface: $CTRL_IFACE" >> "$LOG"
+    echo "$CTRL_IFACE" > "$TMP_CONF"
+    echo "update_config=1" >> "$TMP_CONF"
+    echo "" >> "$TMP_CONF"
+    echo "network={" >> "$TMP_CONF"
+    echo "    ssid=\"$SSID\"" >> "$TMP_CONF"
+    if [ -n "$PASS" ]; then
+        echo "    psk=\"$PASS\"" >> "$TMP_CONF"
+        echo "    key_mgmt=WPA-PSK" >> "$TMP_CONF"
+    else
+        echo "    key_mgmt=NONE" >> "$TMP_CONF"
+    fi
+    echo "    priority=100" >> "$TMP_CONF"
+    echo "    disabled=0" >> "$TMP_CONF"
+    echo "}" >> "$TMP_CONF"
 
-# Tat WiFi truoc khi ghi
-svc wifi disable >> "$LOG" 2>&1
-sleep 2
+    cp "$TMP_CONF" "$CONF" 2>> "$LOG"
+    chmod 660 "$CONF" 2>/dev/null
+    chown system:wifi "$CONF" 2>/dev/null || chown wifi:wifi "$CONF" 2>/dev/null
+    restorecon "$CONF" 2>/dev/null
 
-# Tao file config moi
-echo "$CTRL_IFACE" > "$TMP_CONF"
-echo "update_config=1" >> "$TMP_CONF"
-echo "" >> "$TMP_CONF"
-echo "network={" >> "$TMP_CONF"
-echo "    ssid=\"$SSID\"" >> "$TMP_CONF"
-if [ -n "$PASS" ]; then
-    echo "    psk=\"$PASS\"" >> "$TMP_CONF"
-    echo "    key_mgmt=WPA-PSK" >> "$TMP_CONF"
+    echo "[OK] Da ghi wpa_supplicant.conf" >> "$LOG"
+    svc wifi enable >> "$LOG" 2>&1
+    sleep 5
 else
-    echo "    key_mgmt=NONE" >> "$TMP_CONF"
+    echo "[2/4] Bo qua ghi wpa_supplicant.conf (Loa khong root - dung Public API Broadcast)" >> "$LOG"
 fi
-echo "    priority=100" >> "$TMP_CONF"
-echo "    disabled=0" >> "$TMP_CONF"
-echo "}" >> "$TMP_CONF"
-
-echo "[*] Noi dung config (khong hien psk):" >> "$LOG"
-while read line; do
-    case "$line" in
-        *psk=*) echo "    psk=***" >> "$LOG";;
-        *)      echo "$line" >> "$LOG";;
-    esac
-done < "$TMP_CONF"
-
-# Ghi vao vi tri chinh thuc
-cp "$TMP_CONF" "$CONF"
-echo "[*] cp wpa_supplicant.conf exit: $?" >> "$LOG"
-chmod 660 "$CONF" 2>/dev/null
-chown system:wifi "$CONF" 2>/dev/null || chown wifi:wifi "$CONF" 2>/dev/null
-ls -la "$CONF" >> "$LOG" 2>&1
-
-# Fix SELinux context
-restorecon "$CONF" 2>/dev/null
-
-echo "[OK] Da ghi wpa_supplicant.conf" >> "$LOG"
-
-# Bat lai WiFi
-echo "[*] Bat lai WiFi..." >> "$LOG"
-svc wifi enable >> "$LOG" 2>&1
-sleep 6
-
-# Kiem tra sau khi bat
-echo "[*] Trang thai sau svc wifi enable:" >> "$LOG"
-netcfg 2>/dev/null >> "$LOG"
 
 # ================================================================
-# METHOD C: wpa_cli (neu co)
+# METHOD 3: wpa_cli (neu co)
 # ================================================================
-echo "" >> "$LOG"
-echo "[2/3] Thu wpa_cli..." >> "$LOG"
-
+echo "[3/4] Thu wpa_cli..." >> "$LOG"
 WPA_CLI=""
 if [ -x /system/bin/wpa_cli ]; then
     WPA_CLI="/system/bin/wpa_cli"
@@ -179,18 +130,15 @@ if [ -n "$WPA_CLI" ]; then
         $WPA_CLI -i wlan0 save_config >> "$LOG" 2>&1
     fi
     $WPA_CLI -i wlan0 reassociate >> "$LOG" 2>&1
-else
-    echo "[*] wpa_cli khong co tren ROM nay" >> "$LOG"
 fi
 
 # ================================================================
-# Kiem tra IP
+# METHOD 4: Kiem tra IP
 # ================================================================
-echo "" >> "$LOG"
-echo "[3/3] Kiem tra IP..." >> "$LOG"
+echo "[4/4] Kiem tra IP sau khi thiet lap..." >> "$LOG"
 sleep 5
 echo "==========================================" >> "$LOG"
-netcfg 2>/dev/null >> "$LOG"
+netcfg 2>/dev/null >> "$LOG" || ip addr show wlan0 2>/dev/null >> "$LOG"
 echo "==========================================" >> "$LOG"
 
 echo "=== HOAN TAT ===" >> "$LOG"

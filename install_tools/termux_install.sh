@@ -120,15 +120,8 @@ if ! adb_connect; then
     exit 1
 fi
 
-# ================================================================
-# BUOC 4b: Vo hieu hoa bloatware & Cai APK
-# ================================================================
 echo ""
-echo "[4b/5] Dang vo hieu hoa app rac va cai APK..."
-adb -s 192.168.43.1:5555 shell pm hide com.phicomm.speaker.player > /dev/null 2>&1
-adb -s 192.168.43.1:5555 shell pm hide com.phicomm.speaker.device > /dev/null 2>&1
-adb -s 192.168.43.1:5555 shell pm hide com.phicomm.speaker.airskill > /dev/null 2>&1
-adb -s 192.168.43.1:5555 shell pm hide com.phicomm.speaker.otaservice > /dev/null 2>&1
+echo "[4b/5] Dang nap App PhicommGemini.apk len loa..."
 
 echo "[*] Dang nap PhicommGemini.apk len loa..."
 adb -s 192.168.43.1:5555 push PhicommGemini.apk /data/local/tmp/PhicommGemini.apk
@@ -254,21 +247,50 @@ echo "[*] Dang nap script va thuc thi cau hinh Wi-Fi tren loa..."
 adb -s 192.168.43.1:5555 push ./set_r1_wifi.sh /data/local/tmp/set_r1_wifi.sh > /dev/null 2>&1
 adb -s 192.168.43.1:5555 shell chmod 755 /data/local/tmp/set_r1_wifi.sh > /dev/null 2>&1
 
-# Gui broadcast Android dong thoi tu ngoai ADB (dam bao moi ROM Phicomm/Gemini deu nhan)
+# 1. Gui goi tin UDP Broadcast Wi-Fi (Phuong phap chuan cua loa Phicomm R1 khoi dong)
+echo "[*] Dang gui goi tin UDP pairing Wi-Fi toi loa (192.168.43.1:10000 & 8000)..."
+UDP_JSON="{\"ssid\":\"$HOME_SSID\",\"password\":\"$HOME_PASS\",\"key\":\"$HOME_PASS\"}"
+if command -v nc > /dev/null 2>&1; then
+    printf "%s" "$UDP_JSON" | nc -u -w1 192.168.43.1 10000 2>/dev/null
+    printf "%s" "$UDP_JSON" | nc -u -w1 192.168.43.1 8000 2>/dev/null
+    printf "%s" "$UDP_JSON" | nc -u -w1 192.168.43.255 10000 2>/dev/null
+    printf "%s" "$UDP_JSON" | nc -u -w1 192.168.43.255 8000 2>/dev/null
+fi
+if command -v python3 > /dev/null 2>&1; then
+    python3 -c "import socket; s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM); s.setsockopt(socket.SOL_SOCKET,socket.SO_BROADCAST,1); data=b'$UDP_JSON'; s.sendto(data,('192.168.43.1',10000)); s.sendto(data,('192.168.43.1',8000)); s.sendto(data,('192.168.43.255',10000))" 2>/dev/null
+elif command -v python > /dev/null 2>&1; then
+    python -c "import socket; s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM); s.setsockopt(socket.SOL_SOCKET,socket.SO_BROADCAST,1); data=b'$UDP_JSON'; s.sendto(data,('192.168.43.1',10000)); s.sendto(data,('192.168.43.1',8000)); s.sendto(data,('192.168.43.255',10000))" 2>/dev/null
+fi
+
+# 2. Gui Broadcast Intents qua ADB
 SSID_ESC=$(printf '%s' "$HOME_SSID" | sed "s/'/'\\\\''/g")
 PASS_ESC=$(printf '%s' "$HOME_PASS" | sed "s/'/'\\\\''/g")
-adb -s 192.168.43.1:5555 shell "am broadcast -a com.phicomm.speaker.SET_WIFI --es ssid '$SSID_ESC' --es password '$PASS_ESC'" > /dev/null 2>&1
+echo "[*] Dang gui Public Broadcast Intents qua ADB..."
+adb -s 192.168.43.1:5555 shell "svc wifi enable" > /dev/null 2>&1
+adb -s 192.168.43.1:5555 shell "am broadcast -a com.phicomm.speaker.SET_WIFI --es ssid '$SSID_ESC' --es password '$PASS_ESC' --es key '$PASS_ESC'" > /dev/null 2>&1
+adb -s 192.168.43.1:5555 shell "am broadcast -a com.phicomm.speaker.ACTION_WIFI_SET --es ssid '$SSID_ESC' --es password '$PASS_ESC'" > /dev/null 2>&1
 adb -s 192.168.43.1:5555 shell "am broadcast -a com.phicomm.gemini.SET_WIFI --es ssid '$SSID_ESC' --es password '$PASS_ESC'" > /dev/null 2>&1
+adb -s 192.168.43.1:5555 shell "cmd wifi connect-network '$SSID_ESC' wpa2 '$PASS_ESC'" > /dev/null 2>&1
 
-# Chay script Wi-Fi voi quyen ROOT (su 0 / su -c / sh)
+# 3. Push va chay script set_r1_wifi.sh tren loa
+echo "[*] Dang thuc thi script thiet lap Wi-Fi tren loa..."
+adb -s 192.168.43.1:5555 push ./set_r1_wifi.sh /data/local/tmp/set_r1_wifi.sh > /dev/null 2>&1
+adb -s 192.168.43.1:5555 shell chmod 755 /data/local/tmp/set_r1_wifi.sh > /dev/null 2>&1
 adb -s 192.168.43.1:5555 shell "su 0 sh /data/local/tmp/set_r1_wifi.sh || su -c sh /data/local/tmp/set_r1_wifi.sh || sh /data/local/tmp/set_r1_wifi.sh"
-echo "[OK] Da thuc thi script Wi-Fi tren loa!"
+echo "[OK] Da gui toan bo lenh thiet lap Wi-Fi!"
+
+# 4. Vo hieu hoa app rac Phicomm SAU KHI Wi-Fi da duoc thiet lap
+echo "[*] Dang vo hieu hoa ung dung rac Phicomm..."
+adb -s 192.168.43.1:5555 shell pm hide com.phicomm.speaker.player > /dev/null 2>&1
+adb -s 192.168.43.1:5555 shell pm hide com.phicomm.speaker.device > /dev/null 2>&1
+adb -s 192.168.43.1:5555 shell pm hide com.phicomm.speaker.airskill > /dev/null 2>&1
+adb -s 192.168.43.1:5555 shell pm hide com.phicomm.speaker.otaservice > /dev/null 2>&1
 
 # Lay log tu loa
 echo ""
 echo "[*] NHAT KY KET NOI WI-FI TRUC TIEP TU LOA PHICOMM R1:"
 echo "-------------------------------------------------------------------"
-adb -s 192.168.43.1:5555 shell "su 0 cat /data/local/tmp/wifi_setup.log || cat /data/local/tmp/wifi_setup.log"
+adb -s 192.168.43.1:5555 shell "cat /data/local/tmp/wifi_setup.log 2>/dev/null"
 echo "-------------------------------------------------------------------"
 
 # ================================================================
