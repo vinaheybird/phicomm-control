@@ -241,7 +241,8 @@ if [ "$WIFI_PUSH" -ne 0 ]; then
 fi
 
 # Xac nhan SSID da len loa thanh cong
-VERIFY_SSID=$(adb -s 192.168.43.1:5555 shell "head -n 1 /data/local/tmp/wifi_info.txt" 2>/dev/null | tr -d '\r\n')
+# Dung read builtin thay head (head khong co tren ROM strip)
+VERIFY_SSID=$(adb -s 192.168.43.1:5555 shell 'read L < /data/local/tmp/wifi_info.txt && echo "$L"' 2>/dev/null | tr -d '\r\n')
 echo "[*] Xac nhan SSID tren loa: '$VERIFY_SSID'"
 if [ -z "$VERIFY_SSID" ]; then
     echo "[ERROR] Khong ghi duoc WiFi info len loa! Ket noi ADB bi mat."
