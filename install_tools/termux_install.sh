@@ -13,44 +13,7 @@ echo "  CAI DAT WEB CONTROLLER LOA PHICOMM R1 (TERMUX / ISH)"
 echo "==================================================================="
 echo ""
 
-# ================================================================
-# CANH BAO iSH: ADB KHONG CHAY DUOC TREN iSH (iOS)
-# iSH la x86 emulator chay trong sandbox iOS - ADB daemon khong
-# the mo socket TCP on va bi iOS sandbox chan.
-# Nguoi dung iSH: HAY DUNG TERMUX (Android) thay the.
-# ================================================================
-IS_ISH=0
-if [ -f /proc/ish ]; then
-    IS_ISH=1
-elif uname -r 2>/dev/null | grep -q "ish"; then
-    IS_ISH=1
-elif grep -q "iSH" /proc/version 2>/dev/null; then
-    IS_ISH=1
-fi
 
-if [ "$IS_ISH" -eq 1 ]; then
-    echo "========================================================"
-    echo "  [CANH BAO] Ban dang chay tren iSH (iOS)"
-    echo "========================================================"
-    echo ""
-    echo "  ADB KHONG HOAT DONG DUOC TREN iSH do:"
-    echo "  - iOS sandbox chan ADB daemon mo TCP socket"
-    echo "  - iSH chay x86 emulator - ADB bi timeout"
-    echo ""
-    echo "  THAY THE:"
-    echo "  1. Dung TERMUX tren dien thoai Android"
-    echo "  2. Hoac dung may tinh Windows (chay install.bat)"
-    echo ""
-    printf "  Ban co muon thu tiep khong? (co the that bai) [y/N]: "
-    read ISH_CONFIRM < /dev/tty 2>/dev/null || read ISH_CONFIRM
-    ISH_CONFIRM=$(echo "$ISH_CONFIRM" | tr '[:upper:]' '[:lower:]' | tr -d '\r\n')
-    if [ "$ISH_CONFIRM" != "y" ] && [ "$ISH_CONFIRM" != "yes" ]; then
-        echo "Da huy. Hay dung Termux hoac Windows de thay the."
-        exit 0
-    fi
-    echo "[!] Tiep tuc tren iSH - co the gap loi ADB..."
-    echo ""
-fi
 
 # ================================================================
 # BUOC 1: Kiem tra va cai dat adb & curl
