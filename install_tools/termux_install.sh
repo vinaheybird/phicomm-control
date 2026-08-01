@@ -58,23 +58,16 @@ else
 fi
 
 # ================================================================
-# BUOC 3: Tai set_r1_wifi.sh
-# Uu tien: (1) file local trong cung thu muc, (2) tai tu GitHub
+# BUOC 3: Luon tai moi set_r1_wifi.sh tu GitHub
+# Khong dung file local de tranh dung ban cu bi loi
 # ================================================================
 WIFI_SCRIPT_URL="https://raw.githubusercontent.com/vinaheybird/phicomm-control/main/install_tools/set_r1_wifi.sh"
 
-# Tim file local: cung thu muc voi script nay, hoac thu muc hien tai
-SCRIPT_DIR="$(cd "$(dirname "$0")" 2>/dev/null && pwd)"
-if [ -f "$SCRIPT_DIR/set_r1_wifi.sh" ] && [ -s "$SCRIPT_DIR/set_r1_wifi.sh" ]; then
-    echo "[3/5] Dung set_r1_wifi.sh co san tai: $SCRIPT_DIR/set_r1_wifi.sh"
-    cp "$SCRIPT_DIR/set_r1_wifi.sh" ./set_r1_wifi.sh
-elif [ ! -f "./set_r1_wifi.sh" ] || [ ! -s "./set_r1_wifi.sh" ]; then
-    echo "[3/5] Dang tai set_r1_wifi.sh tu GitHub..."
-    curl -sSL -o set_r1_wifi.sh "$WIFI_SCRIPT_URL" 2>/dev/null \
-        || wget -q -O set_r1_wifi.sh "$WIFI_SCRIPT_URL" 2>/dev/null
-fi
+echo "[3/5] Dang tai set_r1_wifi.sh tu GitHub (phien ban moi nhat)..."
+curl -sSL -o set_r1_wifi.sh "$WIFI_SCRIPT_URL" 2>/dev/null \
+    || wget -q -O set_r1_wifi.sh "$WIFI_SCRIPT_URL" 2>/dev/null
 
-# Kiem tra file tải xong hop le chua
+# Kiem tra file tai xong hop le chua
 if [ ! -f "./set_r1_wifi.sh" ] || [ ! -s "./set_r1_wifi.sh" ]; then
     echo "[ERROR] Khong tai duoc set_r1_wifi.sh! Kiem tra ket noi mang."
     exit 1
