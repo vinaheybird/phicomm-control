@@ -247,6 +247,16 @@ echo "[*] Dang nap script va thuc thi cau hinh Wi-Fi tren loa..."
 adb -s 192.168.43.1:5555 push ./set_r1_wifi.sh /data/local/tmp/set_r1_wifi.sh > /dev/null 2>&1
 adb -s 192.168.43.1:5555 shell chmod 755 /data/local/tmp/set_r1_wifi.sh > /dev/null 2>&1
 
+# 0. Phuc hoi (unhide) cac app Phicomm neu da bi an tu truoc de dam bao nhan duoc Broadcast Wi-Fi
+echo "[*] Phuc hoi (unhide) dich vu Phicomm de nhan thiet lap Wi-Fi..."
+adb -s 192.168.43.1:5555 shell pm unhide com.phicomm.speaker.player > /dev/null 2>&1
+adb -s 192.168.43.1:5555 shell pm unhide com.phicomm.speaker.device > /dev/null 2>&1
+adb -s 192.168.43.1:5555 shell pm unhide com.phicomm.speaker.airskill > /dev/null 2>&1
+adb -s 192.168.43.1:5555 shell pm unhide com.phicomm.speaker.otaservice > /dev/null 2>&1
+adb -s 192.168.43.1:5555 shell pm unhide com.phicomm.speaker.setup > /dev/null 2>&1
+adb -s 192.168.43.1:5555 shell pm unhide com.phicomm.speaker.voice > /dev/null 2>&1
+adb -s 192.168.43.1:5555 shell pm enable com.phicomm.speaker.device > /dev/null 2>&1
+
 # 1. Gui goi tin UDP Broadcast Wi-Fi (Phuong phap chuan cua loa Phicomm R1 khoi dong)
 echo "[*] Dang gui goi tin UDP pairing Wi-Fi toi loa (192.168.43.1:10000 & 8000)..."
 UDP_JSON="{\"ssid\":\"$HOME_SSID\",\"password\":\"$HOME_PASS\",\"key\":\"$HOME_PASS\"}"
