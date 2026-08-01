@@ -160,8 +160,15 @@ if [ -f "set_r1_wifi.sh" ]; then
     echo "[OK] Da gui thong tin Wi-Fi sang loa thanh cong!"
 fi
 
-echo "[*] Doi loa ket noi Wi-Fi (15s)..."
-sleep 15
+echo "[*] Doi loa ket noi Wi-Fi (12s)..."
+sleep 12
+
+echo ""
+echo "[*] NHAT KY KET NOI WI-FI TU LOA PHICOMM R1:"
+echo "-------------------------------------------------------------------"
+adb connect 192.168.43.1:5555 >/dev/null 2>&1
+adb -s 192.168.43.1:5555 shell cat /data/local/tmp/wifi_setup.log 2>/dev/null || echo "[!] Loa da ngat ket noi AP va dang ket noi sang Wi-Fi nha!"
+echo "-------------------------------------------------------------------"
 
 echo ""
 echo "==================================================================="
