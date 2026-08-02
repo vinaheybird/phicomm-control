@@ -10,12 +10,12 @@ echo ""
 # BUOC 1: Kiem tra va cai dat adb & curl
 # ================================================================
 if ! command -v adb > /dev/null 2>&1; then
-    echo "[1/5] Dang cai dat adb & curl..."
+    echo "[1/4] Dang cai dat adb & curl..."
     if command -v pkg > /dev/null 2>&1; then
         # Termux (Android)
         pkg install -y android-tools curl
     elif command -v apk > /dev/null 2>&1; then
-        # Alpine Linux (iSH, Docker, etc.) - can update cache truoc
+        # Alpine Linux (iSH, Docker, etc.) - update cache truoc
         apk update > /dev/null 2>&1
         apk add --no-cache android-tools curl
     else
@@ -30,7 +30,7 @@ if ! command -v adb > /dev/null 2>&1; then
         exit 1
     fi
 else
-    echo "[1/5] adb da co san: $(adb version 2>/dev/null | head -n 1)"
+    echo "[1/4] adb da co san: $(adb version 2>/dev/null | head -n 1)"
 fi
 
 # Kiem tra curl hoac wget
@@ -45,7 +45,7 @@ fi
 APK_URL="https://github.com/vinaheybird/phicomm-control/releases/download/v1.0.0/PhicommGemini.apk"
 
 if [ ! -f "PhicommGemini.apk" ]; then
-    echo "[2/5] Dang tai PhicommGemini.apk tu GitHub..."
+    echo "[2/4] Dang tai PhicommGemini.apk tu GitHub..."
     curl -sSL -o PhicommGemini.apk "$APK_URL" 2>/dev/null \
         || wget -q -O PhicommGemini.apk "$APK_URL" 2>/dev/null
 fi
@@ -58,25 +58,7 @@ else
 fi
 
 # ================================================================
-# BUOC 3: Luon tai moi set_r1_wifi.sh tu GitHub
-# Khong dung file local de tranh dung ban cu bi loi
-# ================================================================
-WIFI_SCRIPT_URL="https://raw.githubusercontent.com/vinaheybird/phicomm-control/main/install_tools/set_r1_wifi.sh"
-
-echo "[3/5] Dang tai set_r1_wifi.sh tu GitHub (phien ban moi nhat)..."
-curl -sSL -o set_r1_wifi.sh "$WIFI_SCRIPT_URL" 2>/dev/null \
-    || wget -q -O set_r1_wifi.sh "$WIFI_SCRIPT_URL" 2>/dev/null
-
-# Kiem tra file tai xong hop le chua
-if [ ! -f "./set_r1_wifi.sh" ] || [ ! -s "./set_r1_wifi.sh" ]; then
-    echo "[ERROR] Khong tai duoc set_r1_wifi.sh! Kiem tra ket noi mang."
-    exit 1
-else
-    echo "[OK] Da co set_r1_wifi.sh ($(du -k ./set_r1_wifi.sh | cut -f1)KB)"
-fi
-
-# ================================================================
-# BUOC 4: Ket noi ADB toi loa Phicomm R1
+# BUOC 3: Ket noi ADB toi loa Phicomm R1 va cai dat APK
 # ================================================================
 echo ""
 echo "-------------------------------------------------------------------"
@@ -89,7 +71,7 @@ echo "-------------------------------------------------------------------"
 read DUMMY < /dev/tty 2>/dev/null || read DUMMY
 
 echo ""
-echo "[4/5] Dang ket noi ADB toi loa Phicomm R1 (192.168.43.1:5555)..."
+echo "[3/4] Dang ket noi ADB toi loa Phicomm R1 (192.168.43.1:5555)..."
 
 adb start-server > /dev/null 2>&1
 adb disconnect > /dev/null 2>&1
@@ -121,8 +103,6 @@ if ! adb_connect; then
 fi
 
 echo ""
-echo "[4b/5] Dang nap App PhicommGemini.apk len loa..."
-
 echo "[*] Dang nap PhicommGemini.apk len loa..."
 adb -s 192.168.43.1:5555 push PhicommGemini.apk /data/local/tmp/PhicommGemini.apk
 PUSH_RESULT=$?
@@ -133,21 +113,21 @@ if [ "$PUSH_RESULT" -ne 0 ]; then
 fi
 
 # pm install lam ADB dong ket noi (error: closed) - BINH THUONG tren Android 5.1
-echo "[*] Dang cai APK tren loa (co the mat ket noi ADB - binh thuong)..."
+echo "[*] Dang cai APK tren loa (co the mat ket noi ADB 20-30s)..."
 adb -s 192.168.43.1:5555 shell pm install -r /data/local/tmp/PhicommGemini.apk
 
-# Cho loa hoi phuc sau pm install (Android 5.1 reset wpa_supplicant -> ADB mat ket noi 15-30s)
-echo "[*] Cho loa hoi phuc sau khi cai APK (co the mat 20-30 giay)..."
+# Cho loa hoi phuc sau pm install
+echo "[*] Cho loa hoi phuc sau khi cai APK..."
 sleep 8
 adb disconnect > /dev/null 2>&1
 sleep 2
 
-# Retry ket noi ADB sau install - can nhieu thoi gian hon
+# Retry ket noi ADB sau install
 RETRY=1
 MAX_RETRY=10
 ADB_OK=0
 while [ "$RETRY" -le "$MAX_RETRY" ]; do
-    echo "[*] Thu ket noi lai ADB sau install (Lan $RETRY/$MAX_RETRY)..."
+    echo "[*] Thu ket noi lai ADB (Lan $RETRY/$MAX_RETRY)..."
     adb connect 192.168.43.1:5555 > /dev/null 2>&1
     sleep 3
     DEV2=$(adb devices 2>/dev/null | grep "192.168.43.1:5555")
@@ -161,36 +141,32 @@ done
 
 if [ "$ADB_OK" -eq 0 ]; then
     echo "[ERROR] Khong ket noi lai duoc ADB sau khi cai APK."
-    echo "[!] Loa co the da reboot. Vui long:"
-    echo "    1. Ket noi lai Wi-Fi loa tren dien thoai"
-    echo "    2. Chay lai script nay de cau hinh Wi-Fi"
+    echo "[!] Loa co the da reboot. Vui long ket noi lai Wi-Fi loa va chay lai script."
     exit 1
 fi
 
-echo "[*] Cap quyen va khoi chay dich vu..."
+# ================================================================
+# BUOC 4: Vo hieu hoa app rac & khoi chay dich vu
+# ================================================================
+echo ""
+echo "[4/4] Dang vo hieu hoa cac ung dung rac & AI mac dinh cua Phicomm..."
+
+# Vo hieu hoa (pm hide) tat ca ung dung mac dinh va tro ly AI cua Phicomm
+adb -s 192.168.43.1:5555 shell pm hide com.phicomm.speaker.player > /dev/null 2>&1
+adb -s 192.168.43.1:5555 shell pm hide com.phicomm.speaker.device > /dev/null 2>&1
+adb -s 192.168.43.1:5555 shell pm hide com.phicomm.speaker.airskill > /dev/null 2>&1
+adb -s 192.168.43.1:5555 shell pm hide com.phicomm.speaker.otaservice > /dev/null 2>&1
+adb -s 192.168.43.1:5555 shell pm hide com.phicomm.speaker.setup > /dev/null 2>&1
+adb -s 192.168.43.1:5555 shell pm hide com.phicomm.speaker.voice > /dev/null 2>&1
+
+echo "[*] Cap quyen va khoi chay dich vu Web Controller..."
+adb -s 192.168.43.1:5555 shell "svc wifi enable" > /dev/null 2>&1
 adb -s 192.168.43.1:5555 shell pm grant com.phicomm.gemini android.permission.BLUETOOTH > /dev/null 2>&1
 adb -s 192.168.43.1:5555 shell pm grant com.phicomm.gemini android.permission.BLUETOOTH_ADMIN > /dev/null 2>&1
 adb -s 192.168.43.1:5555 shell pm grant com.phicomm.gemini android.permission.ACCESS_FINE_LOCATION > /dev/null 2>&1
 adb -s 192.168.43.1:5555 shell am startservice -n com.phicomm.gemini/.service.PhicommGeminiService > /dev/null 2>&1
 sleep 2
 adb -s 192.168.43.1:5555 shell am start -n com.phicomm.gemini/.MainActivity > /dev/null 2>&1
-
-# ================================================================
-# BUOC 5: Cau hinh Wi-Fi nha cho loa
-# ================================================================
-echo ""
-echo "==================================================================="
-echo "  CAU HINH WI-FI NHA CHO LOA PHICOMM R1"
-echo "==================================================================="
-echo ""
-echo "[5/5] Dang kich hoat dich vu va chuan bi giao dien Web..."
-
-# Dam bao WiFi radio dang bat
-adb -s 192.168.43.1:5555 shell "svc wifi enable" > /dev/null 2>&1
-
-# Khoi dong lai service PhicommGemini de chac chan web server dang chay
-adb -s 192.168.43.1:5555 shell "am startservice -n com.phicomm.gemini/.service.PhicommGeminiService" > /dev/null 2>&1
-sleep 2
 
 # ================================================================
 # HOAN TAT
@@ -207,7 +183,7 @@ echo "  BUOC TIEP THEO - KET NOI WI-FI NHA:"
 echo ""
 echo "  1. Giu nguyen ket noi Wi-Fi dien thoai vao loa (Phicomm_R1_xxxx)"
 echo ""
-echo "  2. Mo trinh duyet tren dien thoai, vao dia chi:"
+echo "  2. Mo trinh duyet tren dien thoai, truy cap:"
 echo "     >>> http://192.168.43.1:8080 <<<"
 echo ""
 echo "  3. Trang 'Ket Noi WiFi Nha' se hien ra tu dong."
@@ -215,8 +191,8 @@ echo "     Nhap ten va mat khau WiFi nha ban roi nhan 'Ket Noi WiFi'."
 echo ""
 echo "  4. Sau khi nhan nut Ket Noi:"
 echo "     - Cho 15-30 giay de loa ket noi vao WiFi nha"
-echo "     - Dien thoai se mat ket noi khi loa tat AP"
-echo "     - Ket noi dien thoai vao WiFi nha, truy cap:"
+echo "     - Điện thoại se tu ngat ket noi khoi Wi-Fi loa"
+echo "     - Ket noi dien thoai vao WiFi nha ban, truy cap:"
 echo "         http://phicomm.local:8080"
 echo "         (Hoac tim IP loa trong router nha ban)"
 echo ""
@@ -224,4 +200,3 @@ echo "==================================================================="
 echo ""
 echo "Nhan [ENTER] de ket thuc..."
 read FINISH < /dev/tty 2>/dev/null || read FINISH
-
