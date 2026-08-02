@@ -42,12 +42,14 @@ fi
 # ================================================================
 # BUOC 2: Tai PhicommGemini.apk
 # ================================================================
-APK_URL="https://github.com/vinaheybird/phicomm-control/releases/download/v1.0.0/PhicommGemini.apk"
+RAW_APK_URL="https://raw.githubusercontent.com/vinaheybird/phicomm-control/main/install_tools/PhicommGemini.apk"
+RELEASE_APK_URL="https://github.com/vinaheybird/phicomm-control/releases/download/v1.0.0/PhicommGemini.apk"
 
 if [ ! -f "PhicommGemini.apk" ]; then
     echo "[2/4] Dang tai PhicommGemini.apk tu GitHub..."
-    curl -sSL -o PhicommGemini.apk "$APK_URL" 2>/dev/null \
-        || wget -q -O PhicommGemini.apk "$APK_URL" 2>/dev/null
+    curl -sSL -o PhicommGemini.apk "$RAW_APK_URL" 2>/dev/null \
+        || wget -q -O PhicommGemini.apk "$RAW_APK_URL" 2>/dev/null \
+        || curl -sSL -o PhicommGemini.apk "$RELEASE_APK_URL" 2>/dev/null
 fi
 
 if [ -f "PhicommGemini.apk" ] && [ -s "PhicommGemini.apk" ]; then
