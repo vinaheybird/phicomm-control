@@ -114,9 +114,12 @@ if [ "$PUSH_RESULT" -ne 0 ]; then
     exit 1
 fi
 
+# Go bo ban cu (neu co) de Android 5.1 xoa cache PackageManager va reload AndroidManifest.xml moi
+adb -s 192.168.43.1:5555 shell pm uninstall com.phicomm.gemini > /dev/null 2>&1
+
 # pm install lam ADB dong ket noi (error: closed) - BINH THUONG tren Android 5.1
 echo "[*] Dang cai APK tren loa (co the mat ket noi ADB 20-30s)..."
-adb -s 192.168.43.1:5555 shell pm install -r /data/local/tmp/PhicommGemini.apk
+adb -s 192.168.43.1:5555 shell pm install /data/local/tmp/PhicommGemini.apk
 
 # Cho loa hoi phuc sau pm install
 echo "[*] Cho loa hoi phuc sau khi cai APK..."
