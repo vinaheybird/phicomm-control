@@ -5,7 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.util.Log
-import com.phicomm.gemini.service.PhicommGeminiService
+import com.phicomm.gemini.PhicommGeminiService
 
 class BootReceiver : BroadcastReceiver() {
     companion object {

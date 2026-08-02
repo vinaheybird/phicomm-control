@@ -38,9 +38,14 @@
         </activity>
 
         <service
-            android:name="com.phicomm.gemini.service.PhicommGeminiService"
+            android:name="com.phicomm.gemini.PhicommGeminiService"
             android:enabled="true"
-            android:exported="true" />
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.phicomm.gemini.START_SERVICE" />
+                <action android:name="android.intent.action.MAIN" />
+            </intent-filter>
+        </service>
 
         <receiver
             android:name="com.phicomm.gemini.receiver.BootReceiver"

@@ -1,4 +1,4 @@
-package com.phicomm.gemini.service
+package com.phicomm.gemini
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -17,8 +17,8 @@ import com.phicomm.gemini.web.MDnsPublisher
 import com.phicomm.gemini.web.WebConfigServer
 
 /**
- * PhicommGeminiService — Background service tối ưu cho Android 5.1 (API 21/22).
- * Đảm bảo WebConfigServer (port 8080) LUÔN KHỞI CHẠY kể cả khi các phần cứng khác bị lỗi.
+ * PhicommGeminiService — Background service đặt tại root package com.phicomm.gemini
+ * Đảm bảo tương thích 100% với Android 5.1 và adbd của loa Phicomm R1.
  */
 class PhicommGeminiService : Service() {
 
@@ -44,14 +44,14 @@ class PhicommGeminiService : Service() {
             Log.e(TAG, "❌ Lỗi khởi chạy WebConfigServer: ${e.message}", e)
         }
 
-        // 2. Khởi chạy Foreground Notification (tương thích Android 5.1)
+        // 2. Khởi chạy Foreground Notification
         try {
             startForegroundNotification()
         } catch (e: Throwable) {
-            Log.e(TAG, "Lỗi startForegroundNotification (Android 5.1): ${e.message}", e)
+            Log.e(TAG, "Lỗi startForegroundNotification: ${e.message}", e)
         }
 
-        // 3. Khởi tạo mDNS (phicomm.local)
+        // 3. Khởi tạo mDNS
         try {
             mDnsPublisher = MDnsPublisher(this)
             mDnsPublisher?.registerService(8080)
@@ -59,28 +59,13 @@ class PhicommGeminiService : Service() {
             Log.e(TAG, "Lỗi mDNS: ${e.message}", e)
         }
 
-        // 4. Khởi tạo các bộ điều khiển phần cứng (Mỗi cái độc lập trong try-catch)
-        try {
-            BluetoothController.init(this)
-        } catch (e: Throwable) {
-            Log.e(TAG, "Lỗi BluetoothController.init: ${e.message}", e)
-        }
-
-        try {
-            PromptMuteController.init(this)
-        } catch (e: Throwable) {
-            Log.e(TAG, "Lỗi PromptMuteController.init: ${e.message}", e)
-        }
-
-        try {
-            LedController.init(this)
-        } catch (e: Throwable) {
-            Log.e(TAG, "Lỗi LedController.init: ${e.message}", e)
-        }
+        // 4. Khởi tạo các phần cứng
+        try { BluetoothController.init(this) } catch (e: Throwable) { Log.e(TAG, "Lỗi BT: ${e.message}") }
+        try { PromptMuteController.init(this) } catch (e: Throwable) { Log.e(TAG, "Lỗi Mute: ${e.message}") }
+        try { LedController.init(this) } catch (e: Throwable) { Log.e(TAG, "Lỗi LED: ${e.message}") }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        // Nếu web server chưa chạy (do lỗi trước đó), thử chạy lại
         try {
             if (webConfigServer == null) {
                 webConfigServer = WebConfigServer(this, 8080)

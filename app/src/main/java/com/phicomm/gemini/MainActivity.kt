@@ -16,7 +16,6 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.phicomm.gemini.bluetooth.BluetoothController
-import com.phicomm.gemini.service.PhicommGeminiService
 
 class MainActivity : AppCompatActivity() {
 

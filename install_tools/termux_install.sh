@@ -167,12 +167,13 @@ adb -s 192.168.43.1:5555 shell pm hide com.phicomm.speaker.voice > /dev/null 2>&
 echo "[*] Khoi chay dich vu Web Controller tren loa..."
 adb -s 192.168.43.1:5555 shell "svc wifi enable" > /dev/null 2>&1
 
-# Mo Activity truoc de dua app ra khoi trang thai stopped tren Android 5.1
-adb -s 192.168.43.1:5555 shell am start -n com.phicomm.gemini/com.phicomm.gemini.MainActivity > /dev/null 2>&1
+# 1. Mo MainActivity (se tu khoi chay PhicommGeminiService)
+adb -s 192.168.43.1:5555 shell am start -n com.phicomm.gemini/.MainActivity > /dev/null 2>&1
 sleep 2
 
-# Khoi chay Service Web Controller
-adb -s 192.168.43.1:5555 shell am startservice -n com.phicomm.gemini/com.phicomm.gemini.service.PhicommGeminiService > /dev/null 2>&1
+# 2. Khoi chay Service theo ComponentName va Action intent-filter
+adb -s 192.168.43.1:5555 shell am startservice -n com.phicomm.gemini/.PhicommGeminiService > /dev/null 2>&1
+adb -s 192.168.43.1:5555 shell am startservice -a com.phicomm.gemini.START_SERVICE > /dev/null 2>&1
 sleep 1
 
 # ================================================================
