@@ -95,3 +95,56 @@ Mở trình duyệt bất kỳ truy cập `http://phicomm.local:8080` (hoặc IP
 - **Công tắc Bật/Tắt Đèn LED & chọn màu**
 - **Công tắc Tắt âm thông báo Bluetooth to**
 - **Thanh trượt chỉnh âm lượng loa**
+
+---
+
+## 🛠️ HƯỚNG DẪN BUILD APK BẰNG GRADLE (DÀNH CHO DEVELOPER)
+
+### 1. Yêu Cầu Môi Trường
+- **JDK 17** (Ví dụ: OpenJDK 17 tại `C:\Program Files\Microsoft\jdk-17...`)
+- **Android SDK** (Thường nằm tại `%LOCALAPPDATA%\Android\Sdk` hoặc `C:\Users\<user>\AppData\Local\Android\Sdk`)
+
+---
+
+### 2. Các Lệnh Build APK Debug
+
+#### 💻 Trên Windows Command Prompt (CMD):
+```cmd
+set JAVA_HOME=C:\Program Files\Microsoft\jdk-17.0.19.10-hotspot
+set ANDROID_HOME=C:\Users\zkenz\AppData\Local\Android\Sdk
+gradlew.bat assembleDebug
+```
+
+#### ⚡ Trên Windows PowerShell:
+```powershell
+$env:JAVA_HOME = "C:\Program Files\Microsoft\jdk-17.0.19.10-hotspot"
+$env:ANDROID_HOME = "$env:LOCALAPPDATA\Android\Sdk"
+
+# Cách 1: Gọi gradlew.bat qua cmd
+cmd /c "gradlew.bat assembleDebug"
+
+# Cách 2: Gọi trực tiếp binary Gradle (nếu gradlew.bat gặp lỗi wrapper path)
+$GRADLE_BIN = "$env:USERPROFILE\.gradle\wrapper\dists\gradle-8.5-bin\5t9huq95ubn472n8rpzujfbqh\gradle-8.5\bin\gradle.bat"
+& $GRADLE_BIN assembleDebug
+```
+
+#### 🐧 Trên Linux / macOS:
+```bash
+export JAVA_HOME=/path/to/jdk-17
+export ANDROID_HOME=$HOME/Android/Sdk
+./gradlew assembleDebug
+```
+
+---
+
+### 3. Vị Trí File APK Sau Khi Build
+File APK tạo ra tại:
+```
+app/build/outputs/apk/debug/app-debug.apk
+```
+
+Để cập nhật bản APK dùng cho các script tự động cài đặt, copy file sang `install_tools`:
+```powershell
+Copy-Item "app\build\outputs\apk\debug\app-debug.apk" "install_tools\PhicommGemini.apk" -Force
+```
+
