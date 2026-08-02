@@ -7,6 +7,7 @@ import com.google.gson.Gson
 import com.phicomm.gemini.audio.PromptMuteController
 import com.phicomm.gemini.bluetooth.BluetoothController
 import com.phicomm.gemini.hardware.LedController
+import com.phicomm.gemini.wifi.WifiSetupHelper
 import fi.iki.elonen.NanoHTTPD
 import java.io.IOException
 
@@ -21,6 +22,7 @@ class WebConfigServer(
 
     private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
     private val gson = Gson()
+    private val wifiSetupHelper = WifiSetupHelper(context)
 
     override fun serve(session: IHTTPSession): Response {
         val uri = session.uri
@@ -33,7 +35,21 @@ class WebConfigServer(
             return handleApiRequest(session, uri, method)
         }
 
-        // HTML Web Dashboard
+        // Trang setup WiFi (truy cập trực tiếp)
+        if (uri == "/setup-wifi") {
+            return serveWifiSetupHtml()
+        }
+
+        // Trang chính: nếu loa chưa kết nối WiFi nhà → tự redirect sang /setup-wifi
+        if (uri == "/" || uri == "") {
+            if (!wifiSetupHelper.isConnectedToHomeWifi()) {
+                val resp = newFixedLengthResponse(Response.Status.REDIRECT, "text/plain", "")
+                resp.addHeader("Location", "/setup-wifi")
+                return resp
+            }
+        }
+
+        // Dashboard chính
         return serveDashboardHtml()
     }
 
@@ -48,6 +64,30 @@ class WebConfigServer(
             }
 
             when (uri) {
+                // ── WiFi Setup ──────────────────────────────────────────────
+                "/api/wifi/connect" -> {
+                    val ssid = session.parameters["ssid"]?.get(0) ?: ""
+                    val password = session.parameters["password"]?.get(0) ?: ""
+                    if (ssid.isBlank()) {
+                        responseMap["success"] = false
+                        responseMap["message"] = "Tên WiFi (SSID) không được để trống"
+                    } else {
+                        val (success, message) = wifiSetupHelper.connectToWifi(ssid, password)
+                        responseMap["success"] = success
+                        responseMap["message"] = message
+                    }
+                }
+
+                "/api/wifi/status" -> {
+                    val ip = wifiSetupHelper.getCurrentIp()
+                    val ssid = wifiSetupHelper.getCurrentSsid()
+                    responseMap["success"] = true
+                    responseMap["ip"] = ip
+                    responseMap["ssid"] = ssid
+                    responseMap["isHomeWifi"] = wifiSetupHelper.isConnectedToHomeWifi()
+                }
+
+                // ── Bluetooth ───────────────────────────────────────────────
                 "/api/status" -> {
                     val btEnabled = BluetoothController.isBluetoothEnabled()
                     val connectedDevice = BluetoothController.getConnectedDevice()
@@ -158,6 +198,420 @@ class WebConfigServer(
         return newFixedLengthResponse(Response.Status.OK, "application/json; charset=utf-8", json)
     }
 
+    // ══════════════════════════════════════════════════════════════════
+    // TRANG SETUP WIFI
+    // ══════════════════════════════════════════════════════════════════
+    private fun serveWifiSetupHtml(): Response {
+        val S = '$'
+        val html = """
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Phicomm R1 — Kết Nối WiFi</title>
+<style>
+  :root {
+    --bg: linear-gradient(135deg, #0b0f1e 0%, #0f1f3d 50%, #120b2e 100%);
+    --card: rgba(15, 25, 50, 0.85);
+    --border: rgba(99, 179, 237, 0.2);
+    --blue: #38bdf8;
+    --purple: #a78bfa;
+    --green: #34d399;
+    --red: #f87171;
+    --text: #f0f6ff;
+    --muted: #94a3b8;
+    --input-bg: rgba(255,255,255,0.06);
+    --input-border: rgba(99, 179, 237, 0.3);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    color: var(--text);
+  }
+  .container {
+    width: 100%;
+    max-width: 420px;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+  /* ── Header ── */
+  .header { text-align: center; }
+  .wifi-icon {
+    font-size: 3.5rem;
+    display: block;
+    margin-bottom: 0.5rem;
+    animation: pulse 2.5s ease-in-out infinite;
+    filter: drop-shadow(0 0 16px rgba(56, 189, 248, 0.6));
+  }
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.08); opacity: 0.85; }
+  }
+  .header h1 {
+    font-size: 1.5rem;
+    font-weight: 800;
+    background: linear-gradient(90deg, var(--blue), var(--purple));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .header p { color: var(--muted); font-size: 0.88rem; margin-top: 0.25rem; }
+
+  /* ── Card ── */
+  .card {
+    background: var(--card);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 1.6rem;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(56,189,248,0.08) inset;
+  }
+  .card-title {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--blue);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 1.2rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  /* ── Form ── */
+  .field { margin-bottom: 1rem; }
+  .field label {
+    display: block;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--muted);
+    margin-bottom: 0.4rem;
+    letter-spacing: 0.03em;
+  }
+  .input-wrap { position: relative; }
+  .input-wrap input {
+    width: 100%;
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    border-radius: 12px;
+    color: var(--text);
+    font-size: 1rem;
+    padding: 0.75rem 1rem;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    -webkit-appearance: none;
+  }
+  .input-wrap input:focus {
+    border-color: var(--blue);
+    box-shadow: 0 0 0 3px rgba(56,189,248,0.15);
+  }
+  .input-wrap input::placeholder { color: rgba(148,163,184,0.5); }
+  .toggle-pass {
+    position: absolute;
+    right: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--muted);
+    font-size: 1.1rem;
+    line-height: 1;
+    padding: 0.2rem;
+  }
+
+  /* ── Button ── */
+  .btn-connect {
+    width: 100%;
+    padding: 0.9rem;
+    border: none;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #0ea5e9, #6366f1);
+    color: white;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    letter-spacing: 0.02em;
+    transition: all 0.25s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    position: relative;
+    overflow: hidden;
+    margin-top: 0.5rem;
+  }
+  .btn-connect:hover { opacity: 0.92; transform: translateY(-1px); box-shadow: 0 8px 24px rgba(14,165,233,0.35); }
+  .btn-connect:active { transform: translateY(0); }
+  .btn-connect:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+
+  /* Spinner */
+  .spinner {
+    width: 18px; height: 18px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    display: none;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Status box ── */
+  .status-box {
+    border-radius: 12px;
+    padding: 1rem 1.1rem;
+    font-size: 0.88rem;
+    line-height: 1.5;
+    display: none;
+    margin-top: 0.8rem;
+  }
+  .status-box.success {
+    background: rgba(52, 211, 153, 0.12);
+    border: 1px solid rgba(52, 211, 153, 0.35);
+    color: #6ee7b7;
+  }
+  .status-box.error {
+    background: rgba(248, 113, 113, 0.12);
+    border: 1px solid rgba(248, 113, 113, 0.35);
+    color: #fca5a5;
+  }
+  .status-box.info {
+    background: rgba(56, 189, 248, 0.1);
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    color: #7dd3fc;
+  }
+
+  /* ── Steps ── */
+  .steps { display: flex; flex-direction: column; gap: 0.6rem; margin-top: 0.2rem; }
+  .step {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.7rem;
+    font-size: 0.85rem;
+    color: var(--muted);
+    line-height: 1.4;
+  }
+  .step-num {
+    min-width: 22px; height: 22px;
+    background: rgba(56,189,248,0.15);
+    border: 1px solid rgba(56,189,248,0.3);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--blue);
+  }
+
+  /* ── Dashboard link ── */
+  .dash-link {
+    text-align: center;
+    font-size: 0.82rem;
+    color: var(--muted);
+  }
+  .dash-link a {
+    color: var(--blue);
+    text-decoration: none;
+  }
+  .dash-link a:hover { text-decoration: underline; }
+
+  /* ── Connected state ── */
+  #connectedBanner {
+    background: rgba(52,211,153,0.1);
+    border: 1px solid rgba(52,211,153,0.35);
+    border-radius: 16px;
+    padding: 1.4rem;
+    text-align: center;
+    display: none;
+  }
+  #connectedBanner .icon { font-size: 2.5rem; }
+  #connectedBanner h2 { font-size: 1.1rem; color: var(--green); margin: 0.5rem 0 0.3rem; }
+  #connectedBanner p { font-size: 0.85rem; color: var(--muted); }
+  #connectedBanner .ip-badge {
+    display: inline-block;
+    margin-top: 0.8rem;
+    background: rgba(52,211,153,0.15);
+    border: 1px solid rgba(52,211,153,0.4);
+    border-radius: 8px;
+    padding: 0.4rem 0.9rem;
+    font-family: monospace;
+    font-size: 1rem;
+    color: var(--green);
+    font-weight: 700;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Header -->
+  <div class="header">
+    <span class="wifi-icon">📶</span>
+    <h1>Kết Nối WiFi Nhà</h1>
+    <p>Phicomm R1 — Bước đầu tiên</p>
+  </div>
+
+  <!-- Connected banner (shown when already on home WiFi) -->
+  <div id="connectedBanner">
+    <div class="icon">✅</div>
+    <h2>Đã Kết Nối WiFi Nhà!</h2>
+    <p>Loa đã có IP trên mạng nhà</p>
+    <div class="ip-badge" id="connectedIp">...</div>
+    <br><br>
+    <a href="/" style="color:var(--blue); font-size:0.9rem;">🎛️ Mở Bảng Điều Khiển →</a>
+  </div>
+
+  <!-- Setup form -->
+  <div class="card" id="setupCard">
+    <div class="card-title">📶 Nhập Thông Tin WiFi</div>
+
+    <div class="field">
+      <label for="ssid">Tên WiFi (SSID)</label>
+      <div class="input-wrap">
+        <input type="text" id="ssid" placeholder="Ví dụ: Hoa Duong" autocomplete="off" autocapitalize="off">
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="password">Mật Khẩu WiFi</label>
+      <div class="input-wrap">
+        <input type="password" id="password" placeholder="Mật khẩu (để trống nếu mạng mở)" autocomplete="off">
+        <button class="toggle-pass" type="button" onclick="togglePass()" id="eyeBtn">👁</button>
+      </div>
+    </div>
+
+    <button class="btn-connect" id="connectBtn" onclick="doConnect()">
+      <div class="spinner" id="spinner"></div>
+      <span id="btnText">📶 Kết Nối WiFi</span>
+    </button>
+
+    <div class="status-box" id="statusBox"></div>
+  </div>
+
+  <!-- Instructions -->
+  <div class="card" id="instructCard">
+    <div class="card-title">📋 Hướng Dẫn</div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <span>Nhập đúng <strong>tên WiFi</strong> nhà bạn (phân biệt chữ hoa/thường)</span>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <span>Nhập <strong>mật khẩu</strong> WiFi và nhấn Kết Nối</span>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <span>Đợi <strong>15–30 giây</strong> để loa kết nối vào WiFi nhà</span>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <span>Kết nối điện thoại vào WiFi nhà, truy cập <strong>http://phicomm.local:8080</strong></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dashboard link -->
+  <div class="dash-link">
+    Đã kết nối WiFi nhà? <a href="/">Mở bảng điều khiển →</a>
+  </div>
+
+</div>
+
+<script>
+  // Kiểm tra trạng thái WiFi khi tải trang
+  fetch('/api/wifi/status')
+    .then(r => r.json())
+    .then(d => {
+      if (d.isHomeWifi && d.ip) {
+        document.getElementById('setupCard').style.display = 'none';
+        document.getElementById('instructCard').style.display = 'none';
+        document.getElementById('connectedBanner').style.display = 'block';
+        document.getElementById('connectedIp').textContent = d.ip;
+      }
+    }).catch(() => {});
+
+  function togglePass() {
+    const inp = document.getElementById('password');
+    inp.type = inp.type === 'password' ? 'text' : 'password';
+  }
+
+  function showStatus(type, html) {
+    const box = document.getElementById('statusBox');
+    box.className = 'status-box ' + type;
+    box.innerHTML = html;
+    box.style.display = 'block';
+  }
+
+  async function doConnect() {
+    const ssid = document.getElementById('ssid').value.trim();
+    const pass = document.getElementById('password').value;
+
+    if (!ssid) {
+      showStatus('error', '⚠️ Vui lòng nhập Tên WiFi (SSID)');
+      return;
+    }
+
+    // UI loading state
+    const btn = document.getElementById('connectBtn');
+    btn.disabled = true;
+    document.getElementById('spinner').style.display = 'block';
+    document.getElementById('btnText').textContent = 'Đang kết nối...';
+    showStatus('info', '⏳ Đang gửi lệnh kết nối WiFi tới loa...');
+
+    try {
+      const params = new URLSearchParams({ ssid, password: pass });
+      const res = await fetch('/api/wifi/connect?' + params, { method: 'POST' });
+      const data = await res.json();
+
+      if (data.success) {
+        showStatus('success',
+          '✅ <strong>Đã gửi lệnh kết nối!</strong><br><br>' +
+          '📌 Loa đang kết nối vào <strong>"' + ssid + '"</strong>.<br><br>' +
+          'Tiếp theo:<br>' +
+          '1️⃣ Đợi 15–30 giây<br>' +
+          '2️⃣ Tắt WiFi AP của loa — điện thoại sẽ tự mất kết nối<br>' +
+          '3️⃣ Kết nối điện thoại vào WiFi nhà<br>' +
+          '4️⃣ Truy cập <strong>http://phicomm.local:8080</strong><br>' +
+          '&nbsp;&nbsp;&nbsp;&nbsp;(hoặc tìm IP loa trong router)'
+        );
+        document.getElementById('btnText').textContent = '✅ Đã Gửi Lệnh';
+      } else {
+        showStatus('error', '❌ <strong>Thất bại:</strong> ' + (data.message || 'Lỗi không xác định'));
+        btn.disabled = false;
+        document.getElementById('spinner').style.display = 'none';
+        document.getElementById('btnText').textContent = '📶 Thử Lại';
+      }
+    } catch (e) {
+      showStatus('error', '❌ Không thể kết nối tới server loa. Kiểm tra lại kết nối WiFi.');
+      btn.disabled = false;
+      document.getElementById('spinner').style.display = 'none';
+      document.getElementById('btnText').textContent = '📶 Thử Lại';
+    }
+  }
+
+  // Cho phép bấm Enter để submit
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') doConnect();
+  });
+</script>
+</body>
+</html>
+        """.trimIndent()
+
+        return newFixedLengthResponse(Response.Status.OK, "text/html; charset=utf-8", html)
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    // DASHBOARD CHÍNH
+    // ══════════════════════════════════════════════════════════════════
     private fun serveDashboardHtml(): Response {
         val S = '$'
         val html = """
@@ -337,7 +791,7 @@ class WebConfigServer(
                 <div class="dashboard">
                     <div class="header">
                         <h1>🔊 Phicomm R1 Controller</h1>
-                        <p>Trang Điều Khiển Loa Bluetooth & Phần Cứng</p>
+                        <p>Trang Điều Khiển Loa Bluetooth &amp; Phần Cứng</p>
                     </div>
 
                     <!-- Bluetooth Card -->
@@ -375,7 +829,7 @@ class WebConfigServer(
                         </div>
                     </div>
 
-                    <!-- Paired Devices Switcher -->
+                    <!-- Paired Devices -->
                     <div class="card">
                         <div class="card-title">
                             <span>📱 Danh Sách Thiết Bị Đã Ghép Đôi</span>
@@ -385,7 +839,7 @@ class WebConfigServer(
                         </div>
                     </div>
 
-                    <!-- LED Control Card -->
+                    <!-- LED Control -->
                     <div class="card">
                         <div class="card-title">
                             <span>💡 Điều Khiển Đèn LED</span>
@@ -414,10 +868,10 @@ class WebConfigServer(
                         </div>
                     </div>
 
-                    <!-- Audio & Prompt Mute Card -->
+                    <!-- Audio -->
                     <div class="card">
                         <div class="card-title">
-                            <span>🔊 Âm Thanh & Thông Báo</span>
+                            <span>🔊 Âm Thanh &amp; Thông Báo</span>
                         </div>
 
                         <div class="control-row">
@@ -440,6 +894,13 @@ class WebConfigServer(
                         </div>
                     </div>
 
+                    <!-- WiFi Re-setup -->
+                    <div class="card">
+                        <div class="card-title"><span>📶 Đổi Mạng WiFi</span></div>
+                        <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:0.8rem;">Muốn đổi sang mạng WiFi khác?</p>
+                        <a href="/setup-wifi" class="btn" style="width:100%; display:block; text-align:center;">📶 Thiết Lập WiFi Mới</a>
+                    </div>
+
                 </div>
 
                 <script>
@@ -449,7 +910,6 @@ class WebConfigServer(
                             const data = await res.json();
                             if (!data.success) return;
 
-                            // BT status
                             document.getElementById('btToggle').checked = data.btEnabled;
                             const badge = document.getElementById('btStatusBadge');
                             if (data.btEnabled) {
@@ -472,7 +932,6 @@ class WebConfigServer(
                             document.getElementById('volRange').value = data.volume;
                             document.getElementById('volLabel').innerText = data.volume + '%';
 
-                            // Paired Devices List
                             const pairedList = document.getElementById('pairedList');
                             if (!data.pairedDevices || data.pairedDevices.length === 0) {
                                 pairedList.innerHTML = '<div style="text-align:center; color:var(--text-secondary); padding:1rem;">Chưa có thiết bị nào được ghép đôi</div>';
@@ -484,8 +943,8 @@ class WebConfigServer(
                                             <div class="device-mac">${S}{dev.address}</div>
                                         </div>
                                         <div>
-                                            ${S}{dev.isConnected ? 
-                                                `<button class="btn btn-danger btn-sm" onclick="disconnectDevice()">Ngắt kết nối</button>` : 
+                                            ${S}{dev.isConnected ?
+                                                `<button class="btn btn-danger btn-sm" onclick="disconnectDevice()">Ngắt kết nối</button>` :
                                                 `<button class="btn btn-sm" onclick="connectDevice('${S}{dev.address}')">Kết nối</button>`
                                             }
                                         </div>
@@ -501,51 +960,42 @@ class WebConfigServer(
                         await fetch('/api/bluetooth/toggle', { method: 'POST' });
                         setTimeout(fetchStatus, 800);
                     }
-
                     async function toggleAutoReconnect() {
                         const val = document.getElementById('autoReconnectToggle').checked;
                         await fetch('/api/bluetooth/auto-reconnect?enabled=' + val, { method: 'POST' });
                         fetchStatus();
                     }
-
                     async function connectDevice(address) {
                         await fetch('/api/bluetooth/connect?address=' + encodeURIComponent(address), { method: 'POST' });
                         setTimeout(fetchStatus, 1500);
                     }
-
                     async function disconnectDevice() {
                         await fetch('/api/bluetooth/disconnect', { method: 'POST' });
                         setTimeout(fetchStatus, 1000);
                     }
-
                     async function makeDiscoverable() {
                         const res = await fetch('/api/bluetooth/discover', { method: 'POST' });
                         const data = await res.json();
                         alert(data.message);
                         fetchStatus();
                     }
-
                     async function toggleLed() {
                         await fetch('/api/led/toggle', { method: 'POST' });
                         fetchStatus();
                     }
-
                     async function changeLedMode() {
                         const mode = document.getElementById('ledModeSelect').value;
                         await fetch('/api/led/mode?mode=' + mode, { method: 'POST' });
                         fetchStatus();
                     }
-
                     async function togglePromptMute() {
                         await fetch('/api/prompt-mute/toggle', { method: 'POST' });
                         fetchStatus();
                     }
-
                     async function setVolume(val) {
                         await fetch('/api/volume?level=' + val, { method: 'POST' });
                     }
 
-                    // Tự động làm mới 5 giây một lần
                     fetchStatus();
                     setInterval(fetchStatus, 5000);
                 </script>

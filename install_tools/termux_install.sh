@@ -183,145 +183,45 @@ echo "==================================================================="
 echo "  CAU HINH WI-FI NHA CHO LOA PHICOMM R1"
 echo "==================================================================="
 echo ""
+echo "[5/5] Dang kich hoat dich vu va chuan bi giao dien Web..."
 
-HOME_SSID=""
-while [ -z "$HOME_SSID" ]; do
-    printf "-> Nhap TEN Wi-Fi nha ban (SSID): "
-    read HOME_SSID < /dev/tty 2>/dev/null || read HOME_SSID
-    HOME_SSID=$(echo "$HOME_SSID" | tr -d '\r\n')
-    if [ -z "$HOME_SSID" ]; then
-        echo "[!] Ten Wi-Fi khong duoc de trong!"
-    fi
-done
-
-printf "-> Nhap MAT KHAU Wi-Fi (bam ENTER neu khong co): "
-read HOME_PASS < /dev/tty 2>/dev/null || read HOME_PASS
-HOME_PASS=$(echo "$HOME_PASS" | tr -d '\r\n')
-
-echo ""
-echo "[5/5] Dang thiet lap Wi-Fi '$HOME_SSID' cho loa..."
-
-# Kiem tra ADB con ket noi khong truoc khi push
-adb connect 192.168.43.1:5555 > /dev/null 2>&1
-sleep 1
-DEV_CHECK=$(adb devices 2>/dev/null | grep "192.168.43.1:5555")
-if ! echo "$DEV_CHECK" | grep -q "device$"; then
-    echo "[ERROR] ADB mat ket noi truoc buoc cau hinh Wi-Fi."
-    echo "[!] Ket noi lai Wi-Fi loa tren dien thoai roi chay lai script."
-    exit 1
-fi
-
-# Xoa file cu tren loa TRUOC khi push moi (tranh dung lai file cu rong/sai)
-adb -s 192.168.43.1:5555 shell "rm -f /data/local/tmp/wifi_info.txt" > /dev/null 2>&1
-
-# Ghi SSID va Password vao file text (sach khong co \r)
-printf "%s\n" "$HOME_SSID" > ./wifi_info.txt
-printf "%s\n" "$HOME_PASS" >> ./wifi_info.txt
-
-# Push file thong tin WiFi len loa (hien thi ket qua, khong suppress)
-echo "[*] Dang push wifi_info.txt len loa..."
-adb -s 192.168.43.1:5555 push ./wifi_info.txt /data/local/tmp/wifi_info.txt
-WIFI_PUSH=$?
-
-if [ "$WIFI_PUSH" -ne 0 ]; then
-    echo "[!] Push wifi_info.txt that bai - thu ghi truc tiep qua adb shell..."
-    # Fallback: ghi tung dong qua adb shell (khong can file transfer)
-    # Escape dau ngoac don trong SSID/PASS de tranh loi shell quoting
-    SSID_ESC=$(printf '%s' "$HOME_SSID" | sed "s/'/'\\\\''/g")
-    PASS_ESC=$(printf '%s' "$HOME_PASS" | sed "s/'/'\\\\''/g")
-    adb -s 192.168.43.1:5555 shell "printf '%s\n' '$SSID_ESC' > /data/local/tmp/wifi_info.txt"
-    adb -s 192.168.43.1:5555 shell "printf '%s\n' '$PASS_ESC' >> /data/local/tmp/wifi_info.txt"
-fi
-
-# Xac nhan SSID da len loa thanh cong
-# Dung read builtin thay head (head khong co tren ROM strip)
-VERIFY_SSID=$(adb -s 192.168.43.1:5555 shell 'read L < /data/local/tmp/wifi_info.txt && echo "$L"' 2>/dev/null | tr -d '\r\n')
-echo "[*] Xac nhan SSID tren loa: '$VERIFY_SSID'"
-if [ -z "$VERIFY_SSID" ]; then
-    echo "[ERROR] Khong ghi duoc WiFi info len loa! Ket noi ADB bi mat."
-    exit 1
-fi
-
-# Push va chay script set_r1_wifi.sh tren loa
-echo "[*] Dang nap script va thuc thi cau hinh Wi-Fi tren loa..."
-adb -s 192.168.43.1:5555 push ./set_r1_wifi.sh /data/local/tmp/set_r1_wifi.sh > /dev/null 2>&1
-adb -s 192.168.43.1:5555 shell chmod 755 /data/local/tmp/set_r1_wifi.sh > /dev/null 2>&1
-
-# 0. Phuc hoi (unhide) cac app Phicomm neu da bi an tu truoc de dam bao nhan duoc Broadcast Wi-Fi
-echo "[*] Phuc hoi (unhide) dich vu Phicomm de nhan thiet lap Wi-Fi..."
-adb -s 192.168.43.1:5555 shell pm unhide com.phicomm.speaker.player > /dev/null 2>&1
-adb -s 192.168.43.1:5555 shell pm unhide com.phicomm.speaker.device > /dev/null 2>&1
-adb -s 192.168.43.1:5555 shell pm unhide com.phicomm.speaker.airskill > /dev/null 2>&1
-adb -s 192.168.43.1:5555 shell pm unhide com.phicomm.speaker.otaservice > /dev/null 2>&1
-adb -s 192.168.43.1:5555 shell pm unhide com.phicomm.speaker.setup > /dev/null 2>&1
-adb -s 192.168.43.1:5555 shell pm unhide com.phicomm.speaker.voice > /dev/null 2>&1
-adb -s 192.168.43.1:5555 shell pm enable com.phicomm.speaker.device > /dev/null 2>&1
-
-# 1. Gui goi tin UDP Broadcast Wi-Fi (Phuong phap chuan cua loa Phicomm R1 khoi dong)
-echo "[*] Dang gui goi tin UDP pairing Wi-Fi toi loa (192.168.43.1:10000 & 8000)..."
-UDP_JSON="{\"ssid\":\"$HOME_SSID\",\"password\":\"$HOME_PASS\",\"key\":\"$HOME_PASS\"}"
-if command -v nc > /dev/null 2>&1; then
-    printf "%s" "$UDP_JSON" | nc -u -w1 192.168.43.1 10000 2>/dev/null
-    printf "%s" "$UDP_JSON" | nc -u -w1 192.168.43.1 8000 2>/dev/null
-    printf "%s" "$UDP_JSON" | nc -u -w1 192.168.43.255 10000 2>/dev/null
-    printf "%s" "$UDP_JSON" | nc -u -w1 192.168.43.255 8000 2>/dev/null
-fi
-if command -v python3 > /dev/null 2>&1; then
-    python3 -c "import socket; s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM); s.setsockopt(socket.SOL_SOCKET,socket.SO_BROADCAST,1); data=b'$UDP_JSON'; s.sendto(data,('192.168.43.1',10000)); s.sendto(data,('192.168.43.1',8000)); s.sendto(data,('192.168.43.255',10000))" 2>/dev/null
-elif command -v python > /dev/null 2>&1; then
-    python -c "import socket; s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM); s.setsockopt(socket.SOL_SOCKET,socket.SO_BROADCAST,1); data=b'$UDP_JSON'; s.sendto(data,('192.168.43.1',10000)); s.sendto(data,('192.168.43.1',8000)); s.sendto(data,('192.168.43.255',10000))" 2>/dev/null
-fi
-
-# 2. Gui Broadcast Intents qua ADB
-SSID_ESC=$(printf '%s' "$HOME_SSID" | sed "s/'/'\\\\''/g")
-PASS_ESC=$(printf '%s' "$HOME_PASS" | sed "s/'/'\\\\''/g")
-echo "[*] Dang gui Public Broadcast Intents qua ADB..."
+# Dam bao WiFi radio dang bat
 adb -s 192.168.43.1:5555 shell "svc wifi enable" > /dev/null 2>&1
-adb -s 192.168.43.1:5555 shell "am broadcast -a com.phicomm.speaker.SET_WIFI --es ssid '$SSID_ESC' --es password '$PASS_ESC' --es key '$PASS_ESC'" > /dev/null 2>&1
-adb -s 192.168.43.1:5555 shell "am broadcast -a com.phicomm.speaker.ACTION_WIFI_SET --es ssid '$SSID_ESC' --es password '$PASS_ESC'" > /dev/null 2>&1
-adb -s 192.168.43.1:5555 shell "am broadcast -a com.phicomm.gemini.SET_WIFI --es ssid '$SSID_ESC' --es password '$PASS_ESC'" > /dev/null 2>&1
-adb -s 192.168.43.1:5555 shell "cmd wifi connect-network '$SSID_ESC' wpa2 '$PASS_ESC'" > /dev/null 2>&1
 
-# 3. Push va chay script set_r1_wifi.sh tren loa
-echo "[*] Dang thuc thi script thiet lap Wi-Fi tren loa..."
-adb -s 192.168.43.1:5555 push ./set_r1_wifi.sh /data/local/tmp/set_r1_wifi.sh > /dev/null 2>&1
-adb -s 192.168.43.1:5555 shell chmod 755 /data/local/tmp/set_r1_wifi.sh > /dev/null 2>&1
-adb -s 192.168.43.1:5555 shell "su 0 sh /data/local/tmp/set_r1_wifi.sh || su -c sh /data/local/tmp/set_r1_wifi.sh || sh /data/local/tmp/set_r1_wifi.sh"
-echo "[OK] Da gui toan bo lenh thiet lap Wi-Fi!"
-
-# 4. Vo hieu hoa app rac Phicomm SAU KHI Wi-Fi da duoc thiet lap
-echo "[*] Dang vo hieu hoa ung dung rac Phicomm..."
-adb -s 192.168.43.1:5555 shell pm hide com.phicomm.speaker.player > /dev/null 2>&1
-adb -s 192.168.43.1:5555 shell pm hide com.phicomm.speaker.device > /dev/null 2>&1
-adb -s 192.168.43.1:5555 shell pm hide com.phicomm.speaker.airskill > /dev/null 2>&1
-adb -s 192.168.43.1:5555 shell pm hide com.phicomm.speaker.otaservice > /dev/null 2>&1
-
-# Lay log tu loa
-echo ""
-echo "[*] NHAT KY KET NOI WI-FI TRUC TIEP TU LOA PHICOMM R1:"
-echo "-------------------------------------------------------------------"
-adb -s 192.168.43.1:5555 shell "cat /data/local/tmp/wifi_setup.log 2>/dev/null"
-echo "-------------------------------------------------------------------"
+# Khoi dong lai service PhicommGemini de chac chan web server dang chay
+adb -s 192.168.43.1:5555 shell "am startservice -n com.phicomm.gemini/.service.PhicommGeminiService" > /dev/null 2>&1
+sleep 2
 
 # ================================================================
 # HOAN TAT
 # ================================================================
 echo ""
 echo "==================================================================="
-echo "  [HOAN TAT!]"
+echo "  [HOAN TAT CAI DAT!]"
 echo "-------------------------------------------------------------------"
-echo "  Loa dang ket noi vao Wi-Fi: $HOME_SSID"
 echo ""
-echo "  BUOC TIEP THEO:"
-echo "  1. Ket noi dien thoai vao Wi-Fi nha ban ($HOME_SSID)."
-echo "  2. Mo trinh duyet, thu:"
-echo "     http://phicomm.local:8080"
-echo "     (Neu loi: vao router xem IP loa, truy cap http://[IP]:8080)"
+echo "  App PhicommGemini da duoc cai dat va khoi chay tren loa."
+echo "  Web server dang chay tai: http://192.168.43.1:8080"
 echo ""
-echo "  LUU Y: Neu log tren cho thay chua co IP, hay:"
-echo "     - Cho them 30 giay de loa tu ket noi"
-echo "     - Hoac reboot loa (rut dien 5 giay) roi kiem tra lai"
+echo "  BUOC TIEP THEO - KET NOI WI-FI NHA:"
+echo ""
+echo "  1. Giu nguyen ket noi Wi-Fi dien thoai vao loa (Phicomm_R1_xxxx)"
+echo ""
+echo "  2. Mo trinh duyet tren dien thoai, vao dia chi:"
+echo "     >>> http://192.168.43.1:8080 <<<"
+echo ""
+echo "  3. Trang 'Ket Noi WiFi Nha' se hien ra tu dong."
+echo "     Nhap ten va mat khau WiFi nha ban roi nhan 'Ket Noi WiFi'."
+echo ""
+echo "  4. Sau khi nhan nut Ket Noi:"
+echo "     - Cho 15-30 giay de loa ket noi vao WiFi nha"
+echo "     - Dien thoai se mat ket noi khi loa tat AP"
+echo "     - Ket noi dien thoai vao WiFi nha, truy cap:"
+echo "         http://phicomm.local:8080"
+echo "         (Hoac tim IP loa trong router nha ban)"
+echo ""
 echo "==================================================================="
 echo ""
 echo "Nhan [ENTER] de ket thuc..."
 read FINISH < /dev/tty 2>/dev/null || read FINISH
+
