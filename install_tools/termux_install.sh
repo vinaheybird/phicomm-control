@@ -164,9 +164,12 @@ adb -s 192.168.43.1:5555 shell "svc wifi enable" > /dev/null 2>&1
 adb -s 192.168.43.1:5555 shell pm grant com.phicomm.gemini android.permission.BLUETOOTH > /dev/null 2>&1
 adb -s 192.168.43.1:5555 shell pm grant com.phicomm.gemini android.permission.BLUETOOTH_ADMIN > /dev/null 2>&1
 adb -s 192.168.43.1:5555 shell pm grant com.phicomm.gemini android.permission.ACCESS_FINE_LOCATION > /dev/null 2>&1
-adb -s 192.168.43.1:5555 shell am startservice -n com.phicomm.gemini/.service.PhicommGeminiService > /dev/null 2>&1
+
+# Mo Activity truoc de dua app ra khoi trang thai stopped tren Android 5.1
+adb -s 192.168.43.1:5555 shell am start -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -n com.phicomm.gemini/.MainActivity > /dev/null 2>&1
 sleep 2
-adb -s 192.168.43.1:5555 shell am start -n com.phicomm.gemini/.MainActivity > /dev/null 2>&1
+adb -s 192.168.43.1:5555 shell am startservice -n com.phicomm.gemini/.service.PhicommGeminiService > /dev/null 2>&1
+sleep 1
 
 # ================================================================
 # HOAN TAT

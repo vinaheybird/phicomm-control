@@ -17,7 +17,9 @@ class MDnsPublisher(private val context: Context) {
 
     fun registerService(port: Int) {
         try {
-            nsdManager = context.getSystemService(Context.NSD_SERVICE) as NsdManager
+            nsdManager = context.getSystemService(Context.NSD_SERVICE) as? NsdManager
+            if (nsdManager == null) return
+
             val serviceInfo = NsdServiceInfo().apply {
                 serviceName = SERVICE_NAME
                 serviceType = SERVICE_TYPE
@@ -43,7 +45,7 @@ class MDnsPublisher(private val context: Context) {
             }
 
             nsdManager?.registerService(serviceInfo, NsdManager.PROTOCOL_DNS_SD, registrationListener)
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             Log.e(TAG, "Lỗi khởi tạo mDNS: ${e.message}", e)
         }
     }
@@ -54,7 +56,7 @@ class MDnsPublisher(private val context: Context) {
                 nsdManager?.unregisterService(registrationListener)
                 registrationListener = null
             }
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             Log.e(TAG, "Lỗi hủy mDNS: ${e.message}")
         }
     }

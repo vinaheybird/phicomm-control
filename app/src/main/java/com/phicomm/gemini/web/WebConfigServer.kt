@@ -1008,9 +1008,13 @@ class WebConfigServer(
 
     fun startServer() {
         try {
+            try {
+                stop()
+            } catch (e: Throwable) {}
+
             start(NanoHTTPD.SOCKET_READ_TIMEOUT, false)
             Log.d(TAG, "WebConfigServer đã chạy thành công tại cổng $listeningPort")
-        } catch (e: IOException) {
+        } catch (e: Throwable) {
             Log.e(TAG, "Không thể chạy WebConfigServer: ${e.message}", e)
         }
     }
