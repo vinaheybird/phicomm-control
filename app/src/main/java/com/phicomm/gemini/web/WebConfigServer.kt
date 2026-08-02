@@ -18,6 +18,26 @@ class WebConfigServer(
 
     companion object {
         private const val TAG = "WebConfigServer"
+
+        @Volatile
+        private var instance: WebConfigServer? = null
+
+        fun startInstance(context: Context, port: Int = 8080): WebConfigServer {
+            val current = instance
+            if (current != null && current.isAlive) {
+                return current
+            }
+            synchronized(this) {
+                val newInstance = instance
+                if (newInstance != null && newInstance.isAlive) {
+                    return newInstance
+                }
+                val server = WebConfigServer(context.applicationContext, port)
+                server.startServer()
+                instance = server
+                return server
+            }
+        }
     }
 
     private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager

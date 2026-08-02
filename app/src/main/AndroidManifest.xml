@@ -25,7 +25,7 @@
         android:icon="@android:drawable/ic_dialog_info"
         android:label="Loa Phicomm BT Controller"
         android:supportsRtl="true"
-        android:theme="@style/Theme.AppCompat.Light.NoActionBar">
+        android:theme="@android:style/Theme.NoTitleBar">
 
         <activity
             android:name="com.phicomm.gemini.MainActivity"

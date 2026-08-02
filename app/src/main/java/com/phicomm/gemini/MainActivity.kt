@@ -1,6 +1,7 @@
 package com.phicomm.gemini
 
 import android.Manifest
+import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -12,12 +13,15 @@ import android.util.Log
 import android.widget.Button
 import android.widget.TextView
 import android.widget.Toast
-import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.phicomm.gemini.bluetooth.BluetoothController
+import com.phicomm.gemini.web.WebConfigServer
 
-class MainActivity : AppCompatActivity() {
+/**
+ * MainActivity — Standard android.app.Activity (100% tương thích ROM Android 5.1 stripped, không phụ thuộc AppCompat theme).
+ */
+class MainActivity : Activity() {
 
     companion object {
         private const val TAG = "MainActivity"
@@ -30,10 +34,19 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
-        // Khởi chạy Service Web Controller ngay lập tức (không đợi UI hay permission prompt)
+
+        // 1. ƯU TIÊN SỐ 1: Khởi chạy Web Server 8080 ngay lập tức khi Activity được mở
+        try {
+            WebConfigServer.startInstance(this, 8080)
+            Log.d(TAG, "✅ WebConfigServer đã được khởi chạy trực tiếp từ MainActivity.onCreate()")
+        } catch (e: Throwable) {
+            Log.e(TAG, "Lỗi WebConfigServer từ MainActivity: ${e.message}", e)
+        }
+
+        // 2. Khởi chạy Service ngầm
         startControllerService()
 
+        // 3. Khởi tạo giao diện UI (nếu có màn hình/trình giả lập)
         try {
             setContentView(R.layout.activity_main)
             tvStatus = findViewById(R.id.tvStatus)
@@ -57,10 +70,18 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         } catch (e: Throwable) {
-            Log.e(TAG, "Lỗi setContentView: ${e.message}", e)
+            Log.e(TAG, "Bỏ qua UI layout (ROM stripped headless): ${e.message}")
         }
 
         checkPermissions()
+    }
+
+    override fun onStart() {
+        super.onStart()
+        try {
+            WebConfigServer.startInstance(this, 8080)
+        } catch (e: Throwable) {}
+        startControllerService()
     }
 
     private fun startControllerService() {
