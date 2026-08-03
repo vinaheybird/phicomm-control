@@ -36,7 +36,8 @@ fi
 # ================================================================
 # BUOC 2: Tai PhicommGemini.apk moi nhat tu GitHub Raw
 # ================================================================
-RAW_APK_URL="https://raw.githubusercontent.com/vinaheybird/phicomm-control/main/install_tools/PhicommGemini.apk"
+TS=$(date +%s 2>/dev/null || echo "1")
+RAW_APK_URL="https://raw.githubusercontent.com/vinaheybird/phicomm-control/main/install_tools/PhicommGemini.apk?t=$TS"
 
 # Luon xoa file APK cu de dam bao tai ban moi nhat tu GitHub
 rm -f PhicommGemini.apk 2>/dev/null
