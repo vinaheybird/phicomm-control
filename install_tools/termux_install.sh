@@ -181,19 +181,38 @@ adb -s 192.168.43.1:5555 shell pm hide com.phicomm.speaker.voice > /dev/null 2>&
 echo "[*] Bật Wi-Fi và khởi chạy dịch vụ Controller trên loa..."
 adb -s 192.168.43.1:5555 shell "svc wifi enable" > /dev/null 2>&1
 
-# 1. Mo MainActivity (se tu khoi chay PhicommGeminiService)
+# 1. Mo MainActivity & gui Intent Wi-Fi (adb-join-wifi method + R1 Root wpa_supplicant method)
 if [ -n "$WIFI_SSID" ]; then
-    echo "[*] Dang gui Intent noi Wi-Fi '$WIFI_SSID' cho loa qua ADB (kieu adb-join-wifi)..."
+    echo "[*] Dang gui Intent noi Wi-Fi '$WIFI_SSID' cho loa..."
     adb -s 192.168.43.1:5555 shell am start -n com.phicomm.gemini/.MainActivity -e ssid "$WIFI_SSID" -e password "$WIFI_PASS" > /dev/null 2>&1
     adb -s 192.168.43.1:5555 shell am broadcast -a com.phicomm.gemini.SET_WIFI --es ssid "$WIFI_SSID" --es password "$WIFI_PASS" > /dev/null 2>&1
+
+    echo "[*] Dang thiet lap wpa_supplicant.conf va khoi dong lai Wi-Fi Client mode..."
+    adb -s 192.168.43.1:5555 shell "su 0 sh -c '
+cat << EOF > /data/misc/wifi/wpa_supplicant.conf
+ctrl_interface=DIR=/data/misc/wifi/sockets GROUP=wifi
+update_config=1
+
+network={
+    ssid=\"$WIFI_SSID\"
+    psk=\"$WIFI_PASS\"
+    key_mgmt=WPA-PSK
+    priority=100
+}
+EOF
+chown system:wifi /data/misc/wifi/wpa_supplicant.conf 2>/dev/null
+chmod 660 /data/misc/wifi/wpa_supplicant.conf 2>/dev/null
+svc wifi disable
+sleep 2
+svc wifi enable
+'" > /dev/null 2>&1
 else
     adb -s 192.168.43.1:5555 shell am start -n com.phicomm.gemini/.MainActivity > /dev/null 2>&1
 fi
 sleep 2
 
-# 2. Khoi chay Service theo ComponentName va Action intent-filter
+# 2. Khoi chay Service theo ComponentName (tranh loi implicit intent not found)
 adb -s 192.168.43.1:5555 shell am startservice -n com.phicomm.gemini/.PhicommGeminiService > /dev/null 2>&1
-adb -s 192.168.43.1:5555 shell am startservice -a com.phicomm.gemini.START_SERVICE > /dev/null 2>&1
 sleep 1
 
 # ================================================================
