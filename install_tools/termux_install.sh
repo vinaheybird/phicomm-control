@@ -1,8 +1,8 @@
 #!/bin/sh
-# Termux / iSH Shell script - install Web Controller APK & set Wi-Fi for Phicomm R1
+# Termux / iSH Shell script - install Web Controller APK for Phicomm R1
 
 echo "==================================================================="
-echo "  CAI DAT WEB CONTROLLER LOA PHICOMM R1 (FULL LOG)"
+echo "  CAI DAT WEB CONTROLLER LOA PHICOMM R1"
 echo "==================================================================="
 echo ""
 
@@ -82,26 +82,8 @@ echo "[*] Kiem tra duong dan package com.phicomm.gemini tren loa:"
 adb -s 192.168.43.1:5555 shell "/system/bin/pm path com.phicomm.gemini"
 
 # ================================================================
-# BUOC 4: Nhap Wi-Fi & gui Intent ket noi
+# BUOC 4: Vo hieu hoa ung dung rac & Khoi chay Web Server
 # ================================================================
-echo ""
-echo "-------------------------------------------------------------------"
-echo "  THIET LAP WI-FI NHA CHO LOA PHICOMM R1"
-echo "-------------------------------------------------------------------"
-
-WIFI_SSID="$1"
-WIFI_PASS="$2"
-
-if [ -z "$WIFI_SSID" ]; then
-    printf "Nhap Tên Wi-Fi (SSID) nha ban: "
-    read WIFI_SSID < /dev/tty 2>/dev/null || read WIFI_SSID
-fi
-
-if [ -n "$WIFI_SSID" ] && [ -z "$WIFI_PASS" ]; then
-    printf "Nhap Mat Khau Wi-Fi nha ban (de trong neu la mang Open): "
-    read WIFI_PASS < /dev/tty 2>/dev/null || read WIFI_PASS
-fi
-
 echo ""
 echo "[4/4] Dang vo hieu hoa cac ung dung rac mac dinh..."
 sleep 3
@@ -114,60 +96,23 @@ adb -s 192.168.43.1:5555 shell "pm hide com.phicomm.speaker.setup"
 adb -s 192.168.43.1:5555 shell "pm hide com.phicomm.speaker.voice"
 
 echo ""
-echo "[*] Dang bat Wi-Fi client mode..."
+echo "[*] Dang bat Wi-Fi mode & khoi chay Web Server 8080..."
 adb -s 192.168.43.1:5555 shell "svc wifi enable"
-
-if [ -n "$WIFI_SSID" ]; then
-    echo ""
-    echo "[*] Dang gui Intent mo MainActivity & noi Wi-Fi '$WIFI_SSID'..."
-    adb -s 192.168.43.1:5555 shell "am start -n com.phicomm.gemini/.MainActivity --es ssid '$WIFI_SSID' --es password '$WIFI_PASS'"
-    adb -s 192.168.43.1:5555 shell "am broadcast -a com.phicomm.gemini.SET_WIFI --es ssid '$WIFI_SSID' --es password '$WIFI_PASS'"
-
-    echo ""
-    echo "[*] Gui lenh ket noi Wi-Fi cho onboarding service Phicomm..."
-    adb -s 192.168.43.1:5555 shell "ubus call onboarding connect '{\"ssid\":\"$WIFI_SSID\", \"password\":\"$WIFI_PASS\"}'"
-
-    echo ""
-    echo "[*] Gui lenh wpa_cli ket noi Wi-Fi '$WIFI_SSID'..."
-    if [ -n "$WIFI_PASS" ]; then
-        adb -s 192.168.43.1:5555 shell "su 0 sh -c '
-NID=\$(wpa_cli -i wlan0 add_network)
-wpa_cli -i wlan0 set_network \$NID ssid \"\\\"$WIFI_SSID\\\"\"
-wpa_cli -i wlan0 set_network \$NID psk \"\\\"$WIFI_PASS\\\"\"
-wpa_cli -i wlan0 enable_network \$NID
-wpa_cli -i wlan0 select_network \$NID
-wpa_cli -i wlan0 save_config
-wpa_cli -i wlan0 reassociate
-'"
-    else
-        adb -s 192.168.43.1:5555 shell "su 0 sh -c '
-NID=\$(wpa_cli -i wlan0 add_network)
-wpa_cli -i wlan0 set_network \$NID ssid \"\\\"$WIFI_SSID\\\"\"
-wpa_cli -i wlan0 set_network \$NID key_mgmt NONE
-wpa_cli -i wlan0 enable_network \$NID
-wpa_cli -i wlan0 select_network \$NID
-wpa_cli -i wlan0 save_config
-wpa_cli -i wlan0 reassociate
-'"
-    fi
-else
-    adb -s 192.168.43.1:5555 shell "am start -n com.phicomm.gemini/.MainActivity"
-fi
+adb -s 192.168.43.1:5555 shell "am start -n com.phicomm.gemini/.MainActivity"
 
 echo ""
 echo "==================================================================="
-echo "  [HOAN TAT CAI DAT!]"
+echo "  [HOAN TAT CAI DAT APK!]"
 echo "-------------------------------------------------------------------"
 echo ""
-if [ -n "$WIFI_SSID" ]; then
-    echo "  ✅ Da gui lenh ket noi Wi-Fi '$WIFI_SSID' toi loa Phicomm R1."
-    echo "  - Vui long chuyen Wi-Fi dien thoai/may tinh sang Wi-Fi '$WIFI_SSID'."
-    echo "  - Mo trinh duyet truy cap: http://phicomm.local:8080"
-    echo "    (hoac kiem tra IP moi cua loa trong Router nha ban)."
-else
-    echo "  App PhicommGemini da duoc cai dat va khoi chay tren loa."
-    echo "  Web server dang chay tai: http://192.168.43.1:8080"
-fi
+echo "  ✅ App PhicommGemini va Web Server 8080 da duoc khoi chay tren loa!"
+echo ""
+echo "  📌 BUOC CUOI CUNG DE NOI WI-FI NHA:"
+echo "  1. Dam bao dien thoai van ket noi Wi-Fi 'Phicomm_R1_xxxx'."
+echo "  2. Mo trinh duyet web (Safari/Chrome) truy cap dia chi:"
+echo "     http://192.168.43.1:8080"
+echo "  3. Nhap Ten & Mat Khau Wi-Fi nha ban -> Bam [Ket Noi Wi-Fi]."
+echo "  4. Loa se tu dong ngat Wi-Fi Phicomm va noi vao Wi-Fi nha ban!"
 echo ""
 echo "==================================================================="
 echo "Nhan [ENTER] de ket thuc..."
