@@ -36,7 +36,11 @@ class WifiSetupHelper(private val context: Context) {
         Log.d(TAG, "Chuẩn bị kết nối WiFi: SSID='$cleanSsid', Type='$type'")
 
         return try {
-            // Bật WiFi nếu đang tắt
+            // 0. TẮT TETHERING / SOFTAP HOTSPOT (Cực kỳ quan trọng trên Android 5.1 loa R1)
+            disableSoftApIfActive()
+            Thread.sleep(1000)
+
+            // 1. Bật WiFi Client Mode nếu đang tắt
             if (!wifiManager.isWifiEnabled) {
                 wifiManager.isWifiEnabled = true
                 Thread.sleep(1500)
@@ -169,5 +173,29 @@ class WifiSetupHelper(private val context: Context) {
         val ip = getCurrentIp()
         return ip.isNotEmpty() && !ip.startsWith("192.168.43.")
     }
+
+    /** Tắt Tethering / SoftAP (Hotspot) đang mở trên loa để giải phóng wlan0 cho Client mode */
+    private fun disableSoftApIfActive() {
+        try {
+            val method = wifiManager.javaClass.getMethod("setWifiApEnabled", WifiConfiguration::class.java, java.lang.Boolean.TYPE)
+            method.invoke(wifiManager, null, false)
+            Log.d(TAG, "Đã tắt SoftAP/Hotspot của loa qua Reflection thành công")
+        } catch (e: Throwable) {
+            Log.w(TAG, "Không thể tắt SoftAP qua Reflection: ${e.message}")
+        }
+
+        try {
+            val process = Runtime.getRuntime().exec("su")
+            val os = DataOutputStream(process.outputStream)
+            os.writeBytes("service call connectivity 33 i32 0\n")
+            os.writeBytes("killall hostapd 2>/dev/null\n")
+            os.writeBytes("killall dnsmasq 2>/dev/null\n")
+            os.writeBytes("exit\n")
+            os.flush()
+            process.waitFor()
+            Log.d(TAG, "Đã gửi lệnh su tắt SoftAP hostapd")
+        } catch (e: Throwable) {}
+    }
 }
+
 
