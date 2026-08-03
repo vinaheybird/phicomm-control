@@ -112,8 +112,8 @@ fi
 adb -s 192.168.43.1:5555 shell /system/bin/pm uninstall com.phicomm.gemini > /dev/null 2>&1
 
 echo "[*] Dang cai dat APK PhicommGemini tren loa (Android 5.1 legacy pm)..."
-# Chay pm install qua /system/bin/pm truc tiep tren file da push
-adb -s 192.168.43.1:5555 shell "/system/bin/pm install -r -d /data/local/tmp/PhicommGemini.apk" > /dev/null 2>&1
+# Chay pm install qua /system/bin/pm truc tiep tren file da push (-r: replace, -d: downgrade, -t: allow test/debug apk)
+adb -s 192.168.43.1:5555 shell "/system/bin/pm install -r -d -t /data/local/tmp/PhicommGemini.apk" > /dev/null 2>&1
 
 # Cho loa xu ly va hoi phuc connection
 echo "[*] Cho loa xu ly va khoi dong lai dich vu..."
@@ -169,7 +169,7 @@ cp /data/local/tmp/PhicommGemini.apk /data/app/com.phicomm.gemini-1/base.apk
 chmod 755 /data/app/com.phicomm.gemini-1
 chmod 644 /data/app/com.phicomm.gemini-1/base.apk
 chown -R system:system /data/app/com.phicomm.gemini-1
-/system/bin/pm install -r -d /data/app/com.phicomm.gemini-1/base.apk
+/system/bin/pm install -r -d -t /data/app/com.phicomm.gemini-1/base.apk
 '" > /dev/null 2>&1
     sleep 5
     adb connect 192.168.43.1:5555 > /dev/null 2>&1
