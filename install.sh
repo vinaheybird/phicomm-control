@@ -8,6 +8,9 @@ if [ -f "install_tools/termux_install.sh" ]; then
     exec sh install_tools/termux_install.sh "$@"
 fi
 
+# Luon xoa file cu de dam bao tai phien ban moi nhat
+rm -f termux_install.sh PhicommGemini.apk 2>/dev/null
+
 # Tải và thực thi termux_install.sh bằng wget / curl
 echo "[*] Dang tai script cai dat tu GitHub..."
 if command -v wget > /dev/null 2>&1; then

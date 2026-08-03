@@ -34,20 +34,21 @@ else
 fi
 
 # ================================================================
-# BUOC 2: Tai PhicommGemini.apk
+# BUOC 2: Tai PhicommGemini.apk moi nhat tu GitHub
 # ================================================================
 RAW_APK_URL="https://raw.githubusercontent.com/vinaheybird/phicomm-control/main/install_tools/PhicommGemini.apk"
 RELEASE_APK_URL="https://github.com/vinaheybird/phicomm-control/releases/download/v1.0.0/PhicommGemini.apk"
 
-if [ ! -f "PhicommGemini.apk" ] || [ ! -s "PhicommGemini.apk" ]; then
-    echo "[2/4] Dang tai PhicommGemini.apk tu GitHub (dung wget)..."
-    wget -q --no-check-certificate -O PhicommGemini.apk "$RAW_APK_URL" 2>/dev/null \
-        || wget -q --no-check-certificate -O PhicommGemini.apk "$RELEASE_APK_URL" 2>/dev/null \
-        || curl -sSL -o PhicommGemini.apk "$RAW_APK_URL" 2>/dev/null
-fi
+# Luon xoa file APK cu de dam bao tai ban moi nhat tu GitHub
+rm -f PhicommGemini.apk 2>/dev/null
+
+echo "[2/4] Dang tai phien ban PhicommGemini.apk moi nhat tu GitHub..."
+wget -q --no-check-certificate -O PhicommGemini.apk "$RAW_APK_URL" 2>/dev/null \
+    || wget -q --no-check-certificate -O PhicommGemini.apk "$RELEASE_APK_URL" 2>/dev/null \
+    || curl -sSL -o PhicommGemini.apk "$RAW_APK_URL" 2>/dev/null
 
 if [ -f "PhicommGemini.apk" ] && [ -s "PhicommGemini.apk" ]; then
-    echo "[OK] Da co file APK ($(du -k PhicommGemini.apk | cut -f1)KB)"
+    echo "[OK] Da tai xong APK moi nhat ($(du -k PhicommGemini.apk | cut -f1)KB)"
 else
     echo "[ERROR] Khong tai duoc PhicommGemini.apk! Kiem tra ket noi Internet/4G."
     exit 1
