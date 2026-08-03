@@ -60,7 +60,8 @@ class WifiSetupHelper(private val context: Context) {
                     "NONE", "OPEN" -> {
                         allowedKeyManagement.set(WifiConfiguration.KeyMgmt.NONE)
                     }
-                    else -> { // WPA / WPA2 / WPA3-transition (Mặc định)
+                    else -> { // WPA / WPA2 (Mặc định)
+                        allowedKeyManagement.set(WifiConfiguration.KeyMgmt.WPA_PSK)
                         if (cleanPass.isNotEmpty()) {
                             preSharedKey = "\"$cleanPass\""
                         } else {
@@ -96,11 +97,11 @@ class WifiSetupHelper(private val context: Context) {
                 }
             }
 
-            // Nếu WifiManager API thất bại -> Thử Root Fallback (wpa_cli)
-            Log.w(TAG, "WifiManager.addNetwork thất bại, thử phương pháp Root Fallback (wpa_cli)...")
+            // Nếu WifiManager API thất bại -> Thử Root Fallback (wpa_cli & ubus)
+            Log.w(TAG, "WifiManager.addNetwork thất bại, thử phương pháp Root Fallback (wpa_cli & ubus)...")
             val rootSuccess = connectViaRootWpaCli(cleanSsid, cleanPass, type)
             if (rootSuccess) {
-                Pair(true, "Đã gửi lệnh kết nối qua Root (wpa_cli) cho '$cleanSsid'.")
+                Pair(true, "Đã gửi lệnh kết nối qua Root (wpa_cli & ubus) cho '$cleanSsid'.")
             } else {
                 Pair(false, "Không thể thêm mạng WiFi '$cleanSsid'. Kiểm tra mật khẩu hoặc quyền thiết bị.")
             }
@@ -111,7 +112,7 @@ class WifiSetupHelper(private val context: Context) {
     }
 
     /**
-     * Fallback bằng wpa_cli (Cần Root) nếu WifiManager API bị Android khóa/lỗi
+     * Fallback bằng wpa_cli & ubus (Cần Root) nếu WifiManager API bị Android khóa/lỗi
      */
     private fun connectViaRootWpaCli(ssid: String, pass: String, type: String): Boolean {
         return try {
@@ -119,6 +120,7 @@ class WifiSetupHelper(private val context: Context) {
             val os = DataOutputStream(process.outputStream)
 
             os.writeBytes("svc wifi enable\n")
+            os.writeBytes("ubus call onboarding connect '{\"ssid\":\"$ssid\", \"password\":\"$pass\"}' 2>/dev/null\n")
             os.writeBytes("wpa_cli -i wlan0 reconfigure\n")
             os.writeBytes("NID=\$(wpa_cli -i wlan0 add_network)\n")
             os.writeBytes("wpa_cli -i wlan0 set_network \$NID ssid '\"$ssid\"'\n")
@@ -126,6 +128,7 @@ class WifiSetupHelper(private val context: Context) {
             if (type == "NONE" || pass.isEmpty()) {
                 os.writeBytes("wpa_cli -i wlan0 set_network \$NID key_mgmt NONE\n")
             } else {
+                os.writeBytes("wpa_cli -i wlan0 set_network \$NID key_mgmt WPA-PSK\n")
                 os.writeBytes("wpa_cli -i wlan0 set_network \$NID psk '\"$pass\"'\n")
             }
 
