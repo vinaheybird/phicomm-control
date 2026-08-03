@@ -7,17 +7,17 @@ echo "==================================================================="
 echo ""
 
 # ================================================================
-# BUOC 1: Kiem tra va cai dat adb & curl
+# BUOC 1: Kiem tra va cai dat adb & wget
 # ================================================================
-if ! command -v adb > /dev/null 2>&1; then
-    echo "[1/4] Dang cai dat adb & curl..."
+if ! command -v adb > /dev/null 2>&1 || ! command -v wget > /dev/null 2>&1; then
+    echo "[1/4] Dang cai dat adb & wget..."
     if command -v pkg > /dev/null 2>&1; then
         # Termux (Android)
-        pkg install -y android-tools curl
+        pkg install -y android-tools wget curl
     elif command -v apk > /dev/null 2>&1; then
-        # Alpine Linux (iSH, Docker, etc.) - update cache truoc
+        # Alpine Linux (iSH, Docker, etc.)
         apk update > /dev/null 2>&1
-        apk add --no-cache android-tools curl
+        apk add --no-cache android-tools wget curl
     else
         echo "[ERROR] Khong xac dinh duoc package manager (pkg/apk). Cai adb thu cong."
         exit 1
@@ -26,17 +26,11 @@ if ! command -v adb > /dev/null 2>&1; then
     if ! command -v adb > /dev/null 2>&1; then
         echo "[ERROR] Cai dat adb that bai! Kiem tra ket noi mang hoac cai thu cong:"
         echo "  Termux: pkg install android-tools"
-        echo "  Alpine: apk add android-tools"
+        echo "  iSH: apk add android-tools"
         exit 1
     fi
 else
     echo "[1/4] adb da co san: $(adb version 2>/dev/null | head -n 1)"
-fi
-
-# Kiem tra curl hoac wget
-if ! command -v curl > /dev/null 2>&1 && ! command -v wget > /dev/null 2>&1; then
-    echo "[ERROR] Khong co curl hay wget. Cai dat thu cong."
-    exit 1
 fi
 
 # ================================================================
@@ -45,11 +39,11 @@ fi
 RAW_APK_URL="https://raw.githubusercontent.com/vinaheybird/phicomm-control/main/install_tools/PhicommGemini.apk"
 RELEASE_APK_URL="https://github.com/vinaheybird/phicomm-control/releases/download/v1.0.0/PhicommGemini.apk"
 
-if [ ! -f "PhicommGemini.apk" ]; then
-    echo "[2/4] Dang tai PhicommGemini.apk tu GitHub..."
-    curl -sSL -o PhicommGemini.apk "$RAW_APK_URL" 2>/dev/null \
-        || wget -q -O PhicommGemini.apk "$RAW_APK_URL" 2>/dev/null \
-        || curl -sSL -o PhicommGemini.apk "$RELEASE_APK_URL" 2>/dev/null
+if [ ! -f "PhicommGemini.apk" ] || [ ! -s "PhicommGemini.apk" ]; then
+    echo "[2/4] Dang tai PhicommGemini.apk tu GitHub (dung wget)..."
+    wget -q --no-check-certificate -O PhicommGemini.apk "$RAW_APK_URL" 2>/dev/null \
+        || wget -q --no-check-certificate -O PhicommGemini.apk "$RELEASE_APK_URL" 2>/dev/null \
+        || curl -sSL -o PhicommGemini.apk "$RAW_APK_URL" 2>/dev/null
 fi
 
 if [ -f "PhicommGemini.apk" ] && [ -s "PhicommGemini.apk" ]; then
@@ -153,6 +147,26 @@ fi
 # ================================================================
 # BUOC 4: Vo hieu hoa app rac & khoi chay dich vu
 # ================================================================
+# BUOC 4: Nhap thong tin Wi-Fi & gui Intent ket noi cho loa R1
+# ================================================================
+echo ""
+echo "-------------------------------------------------------------------"
+echo "  THIET LAP WI-FI NHA CHO LOA PHICOMM R1"
+echo "-------------------------------------------------------------------"
+
+WIFI_SSID="$1"
+WIFI_PASS="$2"
+
+if [ -z "$WIFI_SSID" ]; then
+    printf "Nhap Tên Wi-Fi (SSID) nha ban: "
+    read WIFI_SSID < /dev/tty 2>/dev/null || read WIFI_SSID
+fi
+
+if [ -n "$WIFI_SSID" ] && [ -z "$WIFI_PASS" ]; then
+    printf "Nhap Mat Khau Wi-Fi nha ban (de trong neu la mang Open): "
+    read WIFI_PASS < /dev/tty 2>/dev/null || read WIFI_PASS
+fi
+
 echo ""
 echo "[4/4] Dang vo hieu hoa cac ung dung rac & AI mac dinh cua Phicomm..."
 
@@ -164,11 +178,17 @@ adb -s 192.168.43.1:5555 shell pm hide com.phicomm.speaker.otaservice > /dev/nul
 adb -s 192.168.43.1:5555 shell pm hide com.phicomm.speaker.setup > /dev/null 2>&1
 adb -s 192.168.43.1:5555 shell pm hide com.phicomm.speaker.voice > /dev/null 2>&1
 
-echo "[*] Khoi chay dich vu Web Controller tren loa..."
+echo "[*] Bật Wi-Fi và khởi chạy dịch vụ Controller trên loa..."
 adb -s 192.168.43.1:5555 shell "svc wifi enable" > /dev/null 2>&1
 
 # 1. Mo MainActivity (se tu khoi chay PhicommGeminiService)
-adb -s 192.168.43.1:5555 shell am start -n com.phicomm.gemini/.MainActivity > /dev/null 2>&1
+if [ -n "$WIFI_SSID" ]; then
+    echo "[*] Dang gui Intent noi Wi-Fi '$WIFI_SSID' cho loa qua ADB (kieu adb-join-wifi)..."
+    adb -s 192.168.43.1:5555 shell am start -n com.phicomm.gemini/.MainActivity -e ssid "$WIFI_SSID" -e password "$WIFI_PASS" > /dev/null 2>&1
+    adb -s 192.168.43.1:5555 shell am broadcast -a com.phicomm.gemini.SET_WIFI --es ssid "$WIFI_SSID" --es password "$WIFI_PASS" > /dev/null 2>&1
+else
+    adb -s 192.168.43.1:5555 shell am start -n com.phicomm.gemini/.MainActivity > /dev/null 2>&1
+fi
 sleep 2
 
 # 2. Khoi chay Service theo ComponentName va Action intent-filter
@@ -184,27 +204,20 @@ echo "==================================================================="
 echo "  [HOAN TAT CAI DAT!]"
 echo "-------------------------------------------------------------------"
 echo ""
-echo "  App PhicommGemini da duoc cai dat va khoi chay tren loa."
-echo "  Web server dang chay tai: http://192.168.43.1:8080"
-echo ""
-echo "  BUOC TIEP THEO - KET NOI WI-FI NHA:"
-echo ""
-echo "  1. Giu nguyen ket noi Wi-Fi dien thoai vao loa (Phicomm_R1_xxxx)"
-echo ""
-echo "  2. Mo trinh duyet tren dien thoai, truy cap:"
-echo "     >>> http://192.168.43.1:8080 <<<"
-echo ""
-echo "  3. Trang 'Ket Noi WiFi Nha' se hien ra tu dong."
-echo "     Nhap ten va mat khau WiFi nha ban roi nhan 'Ket Noi WiFi'."
-echo ""
-echo "  4. Sau khi nhan nut Ket Noi:"
-echo "     - Cho 15-30 giay de loa ket noi vao WiFi nha"
-echo "     - Điện thoại se tu ngat ket noi khoi Wi-Fi loa"
-echo "     - Ket noi dien thoai vao WiFi nha ban, truy cap:"
-echo "         http://phicomm.local:8080"
-echo "         (Hoac tim IP loa trong router nha ban)"
+if [ -n "$WIFI_SSID" ]; then
+    echo "  ✅ Da gui lenh ket noi Wi-Fi '$WIFI_SSID' toi loa Phicomm R1."
+    echo "  - Loa dang gia nhap Wi-Fi nha ban (mat khoảng 15-30 giây)."
+    echo "  - Vui long chuyen Wi-Fi dien thoai/may tinh sang Wi-Fi '$WIFI_SSID'."
+    echo "  - Mo trinh duyet truy cap: http://phicomm.local:8080"
+    echo "    (hoac kiem tra IP moi cua loa trong Router nha ban)."
+else
+    echo "  App PhicommGemini da duoc cai dat va khoi chay tren loa."
+    echo "  Web server dang chay tai: http://192.168.43.1:8080"
+    echo "  Ban co the truy cap link tren de nhap Wi-Fi nha."
+fi
 echo ""
 echo "==================================================================="
 echo ""
 echo "Nhan [ENTER] de ket thuc..."
 read FINISH < /dev/tty 2>/dev/null || read FINISH
+

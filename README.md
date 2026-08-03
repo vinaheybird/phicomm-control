@@ -36,55 +36,36 @@ Dự án chuyển đổi loa **Phicomm R1 (Feixun R1)** thành **Loa Bluetooth c
 
 ---
 
-## 📱 HƯỚNG DẪN CÀI ĐẶT APK & GỬI WI-FI TỪ IPHONE (APP iSH) VÀ ANDROID (TERMUX)
+## 📱 HƯỚNG DẪN CÀI ĐẶT QUA GITHUB (iSH SHELL / TERMUX / LINUX / MAC)
 
-Nếu bạn dùng iPhone hoặc Android, bạn có thể **cài file APK Web Controller và gửi Wi-Fi trực tiếp từ điện thoại sang loa Phicomm R1**:
-
----
-
-### 🍏 Dành Cho iPhone / iPad (App iSH Shell) & 🤖 Android (Termux):
-
-1. **Bật Internet (4G hoặc Wi-Fi nhà)** và mở ứng dụng Terminal:
-   - Trên **iPhone/iPad**: Mở app **iSH Shell** (tải miễn phí trên App Store).
-   - Trên **Android**: Mở app **Termux** (tải trên F-Droid / Play Store).
-2. **Chạy 1 dòng lệnh tự động duy nhất**:
-
-   **Cách A — Dùng `curl` (khuyên dùng cho cả iSH & Termux):**
-   ```bash
-   apk add curl 2>/dev/null; curl -sSL https://raw.githubusercontent.com/vinaheybird/phicomm-control/main/install_tools/termux_install.sh | sh
-   ```
-
-   **Cách B — Dùng `wget` 2 bước (nếu không có curl):**
-   ```bash
-   wget -O install.sh https://raw.githubusercontent.com/vinaheybird/phicomm-control/main/install_tools/termux_install.sh && sh install.sh
-   ```
-
-   > ⚠️ **Lưu ý:** `wget -qO- URL | sh` (dạng pipe trực tiếp) **không hoạt động** trên iSH vì busybox wget không follow redirect HTTPS đúng cách khi piped. Hãy dùng Cách A hoặc Cách B ở trên.
-
-3. **Quy trình tự động 2 bước của Script**:
-   - **Bước 1**: Script tải `adb` và file `PhicommGemini.apk` từ GitHub Release về điện thoại (cần 4G/Internet).
-   - **Bước 2**: Khi màn hình báo tạm dừng, bạn chuyển Wi-Fi điện thoại sang mạng của loa (**`Phicomm R1`**) rồi nhấn **[ENTER]**.
-   - Script sẽ tự kết nối ADB `192.168.43.1:5555`, đẩy APK lên loa, vô hiệu hóa toàn bộ app rác và hỏi Wi-Fi nhà để gửi sang loa!
-4. Kết nối lại điện thoại vào Wi-Fi nhà và mở trình duyệt truy cập:
-   ```http
-   http://phicomm.local:8080
-   ```
+Dành cho **iPhone/iPad** (App **iSH Shell**) & **Android** (**Termux**).  
+Do `curl` và pipe trực tiếp thường gặp lỗi trên iSH, hãy dùng lệnh `wget` 2 bước chuẩn dưới đây:
 
 ---
 
+### 🚀 Lệnh Cài Đặt Tự Động (Dùng `wget` tương thích 100% trên iSH & Termux):
 
-## 💻 HƯỚNG DẪN CÀI ĐẶT BẰNG MÁY TÍNH (WINDOWS / MAC)
+```bash
+wget -O install.sh https://raw.githubusercontent.com/vinaheybird/phicomm-control/main/install.sh && sh install.sh
+```
 
-### CÁCH 1: QUA WI-FI PHÁT RA TỪ LOA (Khuyên Dùng)
-1. Kết nối Wi-Fi máy tính vào mạng `Phicomm R1`.
-2. Mở thư mục `install_tools` trên máy tính và click đúp vào file **`install_direct_to_r1.bat`**.
-3. File tự động nạp APK `PhicommGemini.apk` lên loa, tắt app rác và gửi Wi-Fi nhà.
-4. Mở trình duyệt truy cập `http://phicomm.local:8080`.
+Hoặc nếu muốn truyền sẵn Tên Wi-Fi và Mật Khẩu nhà:
+```bash
+wget -O install.sh https://raw.githubusercontent.com/vinaheybird/phicomm-control/main/install.sh && sh install.sh "Tên_WiFi_Nhà" "Mật_Khẩu"
+```
 
-### CÁCH 2: QUA CÁP USB (MICRO-USB)
-1. Nối cáp sạc Micro-USB từ đằng sau loa R1 vào cổng USB máy tính PC.
-2. Chạy file `install_tools/install_direct_to_r1.bat`.
+---
 
+### 📋 Quy Trình Tự Động Của Script:
+1. **Tải ADB & APK**: Tải file `PhicommGemini.apk` trực tiếp từ GitHub về máy.
+2. **Nhập Wi-Fi**: Script sẽ hỏi Tên & Mật Khẩu Wi-Fi nhà bạn (nếu chưa truyền vào).
+3. **Kết Nối Loa**: Bạn kết nối Wi-Fi máy/điện thoại vào Hotspot của loa (`Phicomm_R1_xxxx`) và nhấn **[ENTER]**.
+4. **Cài Đặt & Nối Wi-Fi**: Script tự động cài APK, ẩn app rác Phicomm cũ và phát Intent kết nối Wi-Fi nhà cho loa tức thì!
+
+Sau khi hoàn tất, kết nối điện thoại/máy tính về Wi-Fi nhà và truy cập:
+```http
+http://phicomm.local:8080
+```
 ---
 
 ## 🌐 GIAO DIỆN WEB DASHBOARD (`http://phicomm.local:8080`)

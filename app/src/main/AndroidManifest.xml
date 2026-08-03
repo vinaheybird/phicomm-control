@@ -58,6 +58,17 @@
             </intent-filter>
         </receiver>
 
+        <receiver
+            android:name="com.phicomm.gemini.receiver.WifiReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.phicomm.gemini.SET_WIFI" />
+                <action android:name="com.phicomm.speaker.SET_WIFI" />
+                <action android:name="com.phicomm.speaker.ACTION_WIFI_SET" />
+            </intent-filter>
+        </receiver>
+
     </application>
 
 </manifest>

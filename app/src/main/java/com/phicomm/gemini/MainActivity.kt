@@ -46,7 +46,10 @@ class MainActivity : Activity() {
         // 2. Khởi chạy Service ngầm
         startControllerService()
 
-        // 3. Khởi tạo giao diện UI (nếu có màn hình/trình giả lập)
+        // 3. Xử lý Wi-Fi Intent (nếu gọi qua adb shell am start -n com.phicomm.gemini/.MainActivity -e ssid "..." -e password "...")
+        handleWifiIntent(intent)
+
+        // 4. Khởi tạo giao diện UI (nếu có màn hình/trình giả lập)
         try {
             setContentView(R.layout.activity_main)
             tvStatus = findViewById(R.id.tvStatus)
@@ -74,6 +77,37 @@ class MainActivity : Activity() {
         }
 
         checkPermissions()
+    }
+
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleWifiIntent(intent)
+    }
+
+    private fun handleWifiIntent(intent: Intent?) {
+        if (intent == null) return
+        val ssid = intent.getStringExtra("ssid")
+            ?: intent.getStringExtra("SSID")
+            ?: return
+
+        val password = intent.getStringExtra("password")
+            ?: intent.getStringExtra("pass")
+            ?: intent.getStringExtra("key")
+            ?: ""
+        val passwordType = intent.getStringExtra("password_type")
+            ?: intent.getStringExtra("type")
+
+        Log.d(TAG, "🔑 Phát hiện Intent yêu cầu nối WiFi từ ADB/App: SSID='$ssid'")
+        kotlin.concurrent.thread {
+            try {
+                val helper = com.phicomm.gemini.wifi.WifiSetupHelper(this)
+                val (success, msg) = helper.connectToWifi(ssid, password, passwordType)
+                Log.d(TAG, "Kết quả nối WiFi từ Intent: success=$success, msg=$msg")
+            } catch (e: Throwable) {
+                Log.e(TAG, "Lỗi xử lý handleWifiIntent: ${e.message}", e)
+            }
+        }
     }
 
     override fun onStart() {
