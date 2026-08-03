@@ -214,10 +214,6 @@ else
 fi
 sleep 2
 
-# 2. Khoi chay Service theo ComponentName day du
-adb -s 192.168.43.1:5555 shell "am startservice -n com.phicomm.gemini/com.phicomm.gemini.PhicommGeminiService" > /dev/null 2>&1
-sleep 1
-
 # ================================================================
 # HOAN TAT
 # ================================================================
