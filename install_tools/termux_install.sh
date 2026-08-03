@@ -111,10 +111,9 @@ fi
 # Go bo ban cu (neu co) de Android 5.1 xoa cache PackageManager va reload AndroidManifest.xml moi
 adb -s 192.168.43.1:5555 shell /system/bin/pm uninstall com.phicomm.gemini > /dev/null 2>&1
 
-echo "[*] Dang cai dat APK PhicommGemini tren loa..."
-# Cach 1: Cai dat bang adb install truc tiep (Giong nhu tool cai dat Xiaozhi / R1 helper)
-echo "[*] [Cach 1] Dang cai dat qua adb install..."
-adb -s 192.168.43.1:5555 install -r -d PhicommGemini.apk > /dev/null 2>&1
+echo "[*] Dang cai dat APK PhicommGemini tren loa (Android 5.1 legacy pm)..."
+# Chay pm install qua /system/bin/pm truc tiep tren file da push
+adb -s 192.168.43.1:5555 shell "/system/bin/pm install -r -d /data/local/tmp/PhicommGemini.apk" > /dev/null 2>&1
 
 # Cho loa xu ly va hoi phuc connection
 echo "[*] Cho loa xu ly va khoi dong lai dich vu..."
@@ -145,24 +144,25 @@ if [ "$ADB_OK" -eq 0 ]; then
     exit 1
 fi
 
-# CRITICAL: Cho adbd tren loa on dinh socket truoc khi gui lenh shell
-sleep 4
+# CRITICAL: Cho adbd tren loa on dinh socket (5 giay) truoc khi gui lenh shell
+sleep 5
 
-# XAC NHAN THUC TE APK DA DUOC CAI DAT CHUA (THU 3 LAN CO RECONNECT)
+# XAC NHAN THUC TE APK DA DUOC CAI DAT CHUA (THU 5 LAN CO RECONNECT KHONG VO VAP)
 CHECK_INSTALL=""
-for i in 1 2 3; do
+for i in 1 2 3 4 5; do
+    echo "[*] Dang kiem tra xac nhan APK (Lan $i/5)..."
     CHECK_INSTALL=$(adb -s 192.168.43.1:5555 shell "/system/bin/pm path com.phicomm.gemini 2>/dev/null" | grep "package:")
     if [ -n "$CHECK_INSTALL" ]; then
         break
     fi
-    sleep 2
+    sleep 3
     adb connect 192.168.43.1:5555 > /dev/null 2>&1
     sleep 2
 done
 
-# Cach 2: Neu adb install chua thanh cong, thu phuong phap Root Direct Copy & PM Install
+# Phuong phap du phong: Neu pm install qua adb shell bi ngat, thu Root Direct Copy
 if [ -z "$CHECK_INSTALL" ]; then
-    echo "[!] [Cach 2] Dang thu cai dat bang Root Direct Copy..."
+    echo "[!] 'pm install' ngat ket noi. Dang thu phuong phap Root Direct Copy..."
     adb -s 192.168.43.1:5555 shell "su 0 sh -c '
 mkdir -p /data/app/com.phicomm.gemini-1
 cp /data/local/tmp/PhicommGemini.apk /data/app/com.phicomm.gemini-1/base.apk
