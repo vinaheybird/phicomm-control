@@ -34,30 +34,27 @@ else
 fi
 
 # ================================================================
-# BUOC 2: Tai PhicommGemini.apk va adb-join-wifi.apk tu GitHub
+# BUOC 2: Tai PhicommGemini.apk moi nhat tu GitHub Raw
 # ================================================================
 TS=$(date +%s 2>/dev/null || echo "1")
 RAW_APK_URL="https://raw.githubusercontent.com/vinaheybird/phicomm-control/main/install_tools/PhicommGemini.apk?t=$TS"
-ADB_JOIN_WIFI_URL="https://github.com/steinwurf/adb-join-wifi/releases/download/1.0.1/adb-join-wifi.apk"
 
-rm -f PhicommGemini.apk adb-join-wifi.apk 2>/dev/null
+# Luon xoa file APK cu de dam bao tai ban moi nhat tu GitHub
+rm -f PhicommGemini.apk 2>/dev/null
 
-echo "[2/4] Dang tai PhicommGemini.apk va adb-join-wifi.apk tu GitHub..."
+echo "[2/4] Dang tai phien ban PhicommGemini.apk moi nhat tu GitHub Raw..."
 wget -q --no-check-certificate -O PhicommGemini.apk "$RAW_APK_URL" 2>/dev/null \
     || curl -sSL -o PhicommGemini.apk "$RAW_APK_URL" 2>/dev/null
 
-wget -q --no-check-certificate -O adb-join-wifi.apk "$ADB_JOIN_WIFI_URL" 2>/dev/null \
-    || curl -sSL -o adb-join-wifi.apk "$ADB_JOIN_WIFI_URL" 2>/dev/null
-
 if [ -f "PhicommGemini.apk" ] && [ -s "PhicommGemini.apk" ]; then
-    echo "[OK] Da tai xong APK PhicommGemini ($(du -k PhicommGemini.apk | cut -f1)KB)"
+    echo "[OK] Da tai xong APK moi nhat ($(du -k PhicommGemini.apk | cut -f1)KB)"
 else
     echo "[ERROR] Khong tai duoc PhicommGemini.apk! Kiem tra ket noi Internet/4G."
     exit 1
 fi
 
 # ================================================================
-# BUOC 3: Ket noi ADB toi loa Phicomm R1 va cai dat cac APK
+# BUOC 3: Ket noi ADB toi loa Phicomm R1 va cai dat APK
 # ================================================================
 echo ""
 echo "-------------------------------------------------------------------"
@@ -75,6 +72,7 @@ echo "[3/4] Dang ket noi ADB toi loa Phicomm R1 (192.168.43.1:5555)..."
 adb start-server > /dev/null 2>&1
 adb disconnect > /dev/null 2>&1
 
+# Ham ket noi ADB co retry
 adb_connect() {
     local RETRY=1
     local MAX_RETRY=8
@@ -101,27 +99,29 @@ if ! adb_connect; then
 fi
 
 echo ""
-echo "[*] Dang nap cac APK len loa R1..."
-adb -s 192.168.43.1:5555 push PhicommGemini.apk /data/local/tmp/PhicommGemini.apk > /dev/null 2>&1
-if [ -f "adb-join-wifi.apk" ]; then
-    adb -s 192.168.43.1:5555 push adb-join-wifi.apk /data/local/tmp/adb-join-wifi.apk > /dev/null 2>&1
+echo "[*] Dang nap PhicommGemini.apk len loa..."
+adb -s 192.168.43.1:5555 push PhicommGemini.apk /data/local/tmp/PhicommGemini.apk
+PUSH_RESULT=$?
+if [ "$PUSH_RESULT" -ne 0 ]; then
+    echo "[ERROR] Khong push duoc APK len loa (exit code: $PUSH_RESULT)."
+    echo "[!] Kiem tra dung luong loa hoac ket noi ADB."
+    exit 1
 fi
 
+# Go bo ban cu (neu co) de Android 5.1 xoa cache PackageManager va reload AndroidManifest.xml moi
 adb -s 192.168.43.1:5555 shell pm uninstall com.phicomm.gemini > /dev/null 2>&1
 
-echo "[*] Dang cai dat PhicommGemini.apk..."
+# pm install lam ADB dong ket noi (error: closed) - BINH THUONG tren Android 5.1
+echo "[*] Dang cai APK tren loa (co the mat ket noi ADB 20-30s)..."
 adb -s 192.168.43.1:5555 shell pm install -r -d /data/local/tmp/PhicommGemini.apk
 
-if [ -f "adb-join-wifi.apk" ]; then
-    echo "[*] Dang cai dat adb-join-wifi.apk..."
-    adb -s 192.168.43.1:5555 shell pm install -r -d /data/local/tmp/adb-join-wifi.apk > /dev/null 2>&1
-fi
-
+# Cho loa hoi phuc sau pm install
 echo "[*] Cho loa hoi phuc sau khi cai APK..."
 sleep 8
 adb disconnect > /dev/null 2>&1
 sleep 2
 
+# Retry ket noi ADB sau install
 RETRY=1
 MAX_RETRY=10
 ADB_OK=0
@@ -140,9 +140,12 @@ done
 
 if [ "$ADB_OK" -eq 0 ]; then
     echo "[ERROR] Khong ket noi lai duoc ADB sau khi cai APK."
+    echo "[!] Loa co the da reboot. Vui long ket noi lai Wi-Fi loa va chay lai script."
     exit 1
 fi
 
+# ================================================================
+# BUOC 4: Vo hieu hoa app rac & khoi chay dich vu
 # ================================================================
 # BUOC 4: Nhap thong tin Wi-Fi & gui Intent ket noi cho loa R1
 # ================================================================
@@ -164,22 +167,30 @@ if [ -n "$WIFI_SSID" ] && [ -z "$WIFI_PASS" ]; then
     read WIFI_PASS < /dev/tty 2>/dev/null || read WIFI_PASS
 fi
 
-echo "[*] Bật Wi-Fi trên loa..."
+echo ""
+echo "[4/4] Dang vo hieu hoa cac ung dung rac & AI mac dinh cua Phicomm..."
+
+# Vo hieu hoa (pm hide) tat ca ung dung mac dinh va tro ly AI cua Phicomm
+adb -s 192.168.43.1:5555 shell pm hide com.phicomm.speaker.player > /dev/null 2>&1
+adb -s 192.168.43.1:5555 shell pm hide com.phicomm.speaker.device > /dev/null 2>&1
+adb -s 192.168.43.1:5555 shell pm hide com.phicomm.speaker.airskill > /dev/null 2>&1
+adb -s 192.168.43.1:5555 shell pm hide com.phicomm.speaker.otaservice > /dev/null 2>&1
+adb -s 192.168.43.1:5555 shell pm hide com.phicomm.speaker.setup > /dev/null 2>&1
+adb -s 192.168.43.1:5555 shell pm hide com.phicomm.speaker.voice > /dev/null 2>&1
+
+echo "[*] Bật Wi-Fi và khởi chạy dịch vụ Controller trên loa..."
 adb -s 192.168.43.1:5555 shell "svc wifi enable" > /dev/null 2>&1
 
+# 1. Mo MainActivity & gui Intent Wi-Fi (adb-join-wifi method + R1 Root wpa_supplicant + ubus method)
 if [ -n "$WIFI_SSID" ]; then
-    echo "[*] [Cách 1] Gui Intent qua adb-join-wifi..."
-    adb -s 192.168.43.1:5555 shell "am start -n com.steinwurf.adbjoinwifi/.MainActivity --es ssid '$WIFI_SSID' --es password_type WPA --es password '$WIFI_PASS'" > /dev/null 2>&1
-    sleep 1
-
-    echo "[*] [Cách 2] Gui Intent qua PhicommGemini..."
+    echo "[*] Dang gui Intent noi Wi-Fi '$WIFI_SSID' cho loa (trich xuat quotes)..."
     adb -s 192.168.43.1:5555 shell "am start -n com.phicomm.gemini/.MainActivity --es ssid '$WIFI_SSID' --es password '$WIFI_PASS'" > /dev/null 2>&1
     adb -s 192.168.43.1:5555 shell "am broadcast -a com.phicomm.gemini.SET_WIFI --es ssid '$WIFI_SSID' --es password '$WIFI_PASS'" > /dev/null 2>&1
 
-    echo "[*] [Cách 3] Goi Onboarding Service ubus..."
+    echo "[*] Thoi Onboarding Service mac dinh cua Phicomm R1 (ubus)..."
     adb -s 192.168.43.1:5555 shell "ubus call onboarding connect '{\"ssid\":\"$WIFI_SSID\", \"password\":\"$WIFI_PASS\"}'" > /dev/null 2>&1
 
-    echo "[*] [Cách 4] Ghi wpa_supplicant.conf & restart Wi-Fi Client mode..."
+    echo "[*] Dang thiet lap wpa_supplicant.conf va khoi dong lai Wi-Fi Client mode..."
     adb -s 192.168.43.1:5555 shell "su 0 sh -c '
 cat << EOF > /data/misc/wifi/wpa_supplicant.conf
 ctrl_interface=DIR=/data/misc/wifi/sockets GROUP=wifi
