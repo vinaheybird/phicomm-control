@@ -109,15 +109,16 @@ if [ "$PUSH_RESULT" -ne 0 ]; then
 fi
 
 # Go bo ban cu (neu co) de Android 5.1 xoa cache PackageManager va reload AndroidManifest.xml moi
-adb -s 192.168.43.1:5555 shell pm uninstall com.phicomm.gemini > /dev/null 2>&1
+adb -s 192.168.43.1:5555 shell /system/bin/pm uninstall com.phicomm.gemini > /dev/null 2>&1
 
 echo "[*] Dang cai dat APK PhicommGemini tren loa..."
-# Su dung su 0 pm install va redirect de ngan ngat ket noi ADB lam SIGHUP/kill tien trinh pm install
-adb -s 192.168.43.1:5555 shell "su 0 pm install -r -d /data/local/tmp/PhicommGemini.apk" > /dev/null 2>&1
+# Cach 1: Cai dat bang adb install truc tiep (Giong nhu tool cai dat Xiaozhi / R1 helper)
+echo "[*] [Cach 1] Dang cai dat qua adb install..."
+adb -s 192.168.43.1:5555 install -r -d PhicommGemini.apk > /dev/null 2>&1
 
-# Cho loa xu ly va hoi phuc ket noi
+# Cho loa xu ly va hoi phuc connection
 echo "[*] Cho loa xu ly va khoi dong lai dich vu..."
-sleep 6
+sleep 5
 adb disconnect > /dev/null 2>&1
 sleep 2
 
@@ -128,10 +129,10 @@ ADB_OK=0
 while [ "$RETRY" -le "$MAX_RETRY" ]; do
     echo "[*] Thu ket noi lai ADB (Lan $RETRY/$MAX_RETRY)..."
     adb connect 192.168.43.1:5555 > /dev/null 2>&1
-    sleep 2
+    sleep 3
     DEV2=$(adb devices 2>/dev/null | grep "192.168.43.1:5555")
     if echo "$DEV2" | grep -q "device$"; then
-        echo "[OK] ADB da ket noi lai!"
+        echo "[OK] ADB da ket noi lai thanh cong!"
         ADB_OK=1
         break
     fi
@@ -144,26 +145,40 @@ if [ "$ADB_OK" -eq 0 ]; then
     exit 1
 fi
 
-# XAC NHAN THUC TE APK DA DUOC CAI DAT CHUA
-echo "[*] Dang kiem tra xac nhan APK com.phicomm.gemini tren loa..."
-CHECK_INSTALL=$(adb -s 192.168.43.1:5555 shell "pm path com.phicomm.gemini 2>/dev/null" | grep "package:")
+# CRITICAL: Cho adbd tren loa on dinh socket truoc khi gui lenh shell
+sleep 4
 
+# XAC NHAN THUC TE APK DA DUOC CAI DAT CHUA (THU 3 LAN CO RECONNECT)
+CHECK_INSTALL=""
+for i in 1 2 3; do
+    CHECK_INSTALL=$(adb -s 192.168.43.1:5555 shell "/system/bin/pm path com.phicomm.gemini 2>/dev/null" | grep "package:")
+    if [ -n "$CHECK_INSTALL" ]; then
+        break
+    fi
+    sleep 2
+    adb connect 192.168.43.1:5555 > /dev/null 2>&1
+    sleep 2
+done
+
+# Cach 2: Neu adb install chua thanh cong, thu phuong phap Root Direct Copy & PM Install
 if [ -z "$CHECK_INSTALL" ]; then
-    echo "[!] 'pm install' bi ngat giua chung. Dang thu phuong phap Root Direct Install..."
+    echo "[!] [Cach 2] Dang thu cai dat bang Root Direct Copy..."
     adb -s 192.168.43.1:5555 shell "su 0 sh -c '
 mkdir -p /data/app/com.phicomm.gemini-1
 cp /data/local/tmp/PhicommGemini.apk /data/app/com.phicomm.gemini-1/base.apk
 chmod 755 /data/app/com.phicomm.gemini-1
 chmod 644 /data/app/com.phicomm.gemini-1/base.apk
 chown -R system:system /data/app/com.phicomm.gemini-1
-pm install -r -d /data/app/com.phicomm.gemini-1/base.apk
+/system/bin/pm install -r -d /data/app/com.phicomm.gemini-1/base.apk
 '" > /dev/null 2>&1
+    sleep 5
+    adb connect 192.168.43.1:5555 > /dev/null 2>&1
     sleep 3
-    CHECK_INSTALL=$(adb -s 192.168.43.1:5555 shell "pm path com.phicomm.gemini 2>/dev/null" | grep "package:")
+    CHECK_INSTALL=$(adb -s 192.168.43.1:5555 shell "/system/bin/pm path com.phicomm.gemini 2>/dev/null" | grep "package:")
 fi
 
 if [ -n "$CHECK_INSTALL" ]; then
-    echo "[OK] XAC NHAN: APK PhicommGemini da duoc cai dat thanh cong!"
+    echo "[OK] XAC NHAN: APK PhicommGemini da duoc cai dat thanh cong ($CHECK_INSTALL)!"
 else
     echo "[ERROR] THAT BAI: Khong the cai dat APK PhicommGemini len loa!"
     echo "[!] Kiem tra dung luong bo nho loa (df -h) hoac khoi dong lai loa va thu lai."
