@@ -104,6 +104,8 @@ fi
 
 echo ""
 echo "[4/4] Dang vo hieu hoa cac ung dung rac mac dinh..."
+sleep 3
+adb connect 192.168.43.1:5555 > /dev/null 2>&1
 adb -s 192.168.43.1:5555 shell "pm hide com.phicomm.speaker.player"
 adb -s 192.168.43.1:5555 shell "pm hide com.phicomm.speaker.device"
 adb -s 192.168.43.1:5555 shell "pm hide com.phicomm.speaker.airskill"
