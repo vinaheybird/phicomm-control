@@ -181,11 +181,14 @@ adb -s 192.168.43.1:5555 shell pm hide com.phicomm.speaker.voice > /dev/null 2>&
 echo "[*] Bật Wi-Fi và khởi chạy dịch vụ Controller trên loa..."
 adb -s 192.168.43.1:5555 shell "svc wifi enable" > /dev/null 2>&1
 
-# 1. Mo MainActivity & gui Intent Wi-Fi (adb-join-wifi method + R1 Root wpa_supplicant method)
+# 1. Mo MainActivity & gui Intent Wi-Fi (adb-join-wifi method + R1 Root wpa_supplicant + ubus method)
 if [ -n "$WIFI_SSID" ]; then
-    echo "[*] Dang gui Intent noi Wi-Fi '$WIFI_SSID' cho loa..."
-    adb -s 192.168.43.1:5555 shell am start -n com.phicomm.gemini/.MainActivity -e ssid "$WIFI_SSID" -e password "$WIFI_PASS" > /dev/null 2>&1
-    adb -s 192.168.43.1:5555 shell am broadcast -a com.phicomm.gemini.SET_WIFI --es ssid "$WIFI_SSID" --es password "$WIFI_PASS" > /dev/null 2>&1
+    echo "[*] Dang gui Intent noi Wi-Fi '$WIFI_SSID' cho loa (trich xuat quotes)..."
+    adb -s 192.168.43.1:5555 shell "am start -n com.phicomm.gemini/.MainActivity --es ssid '$WIFI_SSID' --es password '$WIFI_PASS'" > /dev/null 2>&1
+    adb -s 192.168.43.1:5555 shell "am broadcast -a com.phicomm.gemini.SET_WIFI --es ssid '$WIFI_SSID' --es password '$WIFI_PASS'" > /dev/null 2>&1
+
+    echo "[*] Thoi Onboarding Service mac dinh cua Phicomm R1 (ubus)..."
+    adb -s 192.168.43.1:5555 shell "ubus call onboarding connect '{\"ssid\":\"$WIFI_SSID\", \"password\":\"$WIFI_PASS\"}'" > /dev/null 2>&1
 
     echo "[*] Dang thiet lap wpa_supplicant.conf va khoi dong lai Wi-Fi Client mode..."
     adb -s 192.168.43.1:5555 shell "su 0 sh -c '
@@ -207,12 +210,12 @@ sleep 2
 svc wifi enable
 '" > /dev/null 2>&1
 else
-    adb -s 192.168.43.1:5555 shell am start -n com.phicomm.gemini/.MainActivity > /dev/null 2>&1
+    adb -s 192.168.43.1:5555 shell "am start -n com.phicomm.gemini/.MainActivity" > /dev/null 2>&1
 fi
 sleep 2
 
-# 2. Khoi chay Service theo ComponentName (tranh loi implicit intent not found)
-adb -s 192.168.43.1:5555 shell am startservice -n com.phicomm.gemini/.PhicommGeminiService > /dev/null 2>&1
+# 2. Khoi chay Service theo ComponentName day du
+adb -s 192.168.43.1:5555 shell "am startservice -n com.phicomm.gemini/com.phicomm.gemini.PhicommGeminiService" > /dev/null 2>&1
 sleep 1
 
 # ================================================================
