@@ -100,31 +100,11 @@ adb -s 192.168.43.1:5555 shell "svc wifi enable"
 adb -s 192.168.43.1:5555 shell "am start -n com.phicomm.gemini/.MainActivity"
 
 echo ""
-echo "[*] Dang khoi tao Root Daemon cho WiFi..."
-adb -s 192.168.43.1:5555 shell "cat << 'EOF' > /data/local/tmp/gemini_wifi.sh
-#!/system/bin/sh
-while true; do
-  if [ -f /data/local/tmp/wifi.txt ]; then
-    SSID=\$(head -n 1 /data/local/tmp/wifi.txt | tr -d '\r')
-    PASS=\$(tail -n 1 /data/local/tmp/wifi.txt | tr -d '\r')
-    rm /data/local/tmp/wifi.txt
-    ubus call onboarding connect \"{\\\"ssid\\\":\\\"\$SSID\\\", \\\"key\\\":\\\"\$PASS\\\"}\"
-  fi
-  sleep 3
-done
-EOF"
-adb -s 192.168.43.1:5555 shell "chmod 755 /data/local/tmp/gemini_wifi.sh"
-# Kill daemon cu neu co, roi chay cai moi
-adb -s 192.168.43.1:5555 shell "killall gemini_wifi.sh 2>/dev/null"
-adb -s 192.168.43.1:5555 shell "nohup /data/local/tmp/gemini_wifi.sh >/dev/null 2>&1 &"
-
-echo ""
 echo "==================================================================="
 echo "  [HOAN TAT CAI DAT APK!]"
 echo "-------------------------------------------------------------------"
 echo ""
 echo "  ✅ App PhicommGemini va Web Server 8080 da duoc khoi chay tren loa!"
-echo "  ✅ Root Daemon cho WiFi da san sang!"
 echo ""
 echo "  📌 BUOC CUOI CUNG DE NOI WI-FI NHA:"
 echo "  1. Dam bao dien thoai van ket noi Wi-Fi 'Phicomm_R1_xxxx'."
