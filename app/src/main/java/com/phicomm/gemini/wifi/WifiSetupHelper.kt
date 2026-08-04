@@ -20,7 +20,7 @@ class WifiSetupHelper(private val context: Context) {
         context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
 
     /**
-     * Kết nối loa vào mạng WiFi với SSID và Password theo chuẩn steinwurf/adb-join-wifi.
+     * Kết nối loa vào mạng WiFi. Chạy trong Background Thread để không làm block HTTP server.
      */
     fun connectToWifi(ssid: String, password: String, passwordType: String? = null): Pair<Boolean, String> {
         val cleanSsid = ssid.trim()
@@ -31,22 +31,32 @@ class WifiSetupHelper(private val context: Context) {
         Log.d(TAG, "SSID='$cleanSsid', Type='$type', PassLength=${cleanPass.length}")
 
         return try {
-            // 1. Đảm bảo WiFi Client đang bật
+            // 1. Tắt điểm phát WiFi (SoftAP)
+            Log.d(TAG, "Đang tắt chế độ phát WiFi (SoftAP)...")
+            disableSoftAp()
+            Thread.sleep(1500)
+
+            // 2. Bật chế độ WiFi thu (Client Mode)
             if (!wifiManager.isWifiEnabled) {
-                Log.d(TAG, "WiFi đang tắt, tiến hành bật isWifiEnabled = true")
+                Log.d(TAG, "WiFi Client đang tắt. Đang bật...")
                 wifiManager.isWifiEnabled = true
-                Thread.sleep(2000)
-                Log.d(TAG, "Trạng thái sau khi bật WiFi: ${wifiManager.wifiState}")
-            } else {
-                Log.d(TAG, "WiFi đã được bật sẵn.")
             }
 
-            // 2. Thử nối qua ubus & wpa_cli (Cách native mạnh nhất trên Phicomm R1)
-            Log.d(TAG, "--- Đang gọi connectViaRoot ---")
-            val rootSuccess = connectViaRoot(cleanSsid, cleanPass, type)
-            Log.d(TAG, "Kết quả connectViaRoot: $rootSuccess")
+            // Chờ tối đa 10 giây để WiFi thực sự bật (WIFI_STATE_ENABLED == 3)
+            var waitCount = 0
+            while (wifiManager.wifiState != WifiManager.WIFI_STATE_ENABLED && waitCount < 10) {
+                Log.d(TAG, "Đang chờ WiFi bật... Trạng thái hiện tại: ${wifiManager.wifiState}")
+                Thread.sleep(1000)
+                waitCount++
+            }
+            
+            if (wifiManager.wifiState != WifiManager.WIFI_STATE_ENABLED) {
+                Log.e(TAG, "LỖI: Không thể bật WiFi Client Mode. Trạng thái cuối: ${wifiManager.wifiState}")
+                return Pair(false, "Không thể bật WiFi trên loa.")
+            }
+            Log.d(TAG, "WiFi Client đã BẬT THÀNH CÔNG (Trạng thái: 3).")
 
-            // 3. Dự phòng bằng Android WifiManager API
+            // 3. Tạo cấu hình mạng
             Log.d(TAG, "--- Đang cấu hình WifiConfiguration API ---")
             val conf = WifiConfiguration().apply {
                 SSID = "\"$cleanSsid\""
@@ -60,17 +70,18 @@ class WifiSetupHelper(private val context: Context) {
                     "OPEN", "NONE" -> {
                         allowedKeyManagement.set(WifiConfiguration.KeyMgmt.NONE)
                     }
-                    else -> {
+                    else -> { // WPA/WPA2
                         preSharedKey = "\"$cleanPass\""
+                        allowedKeyManagement.set(WifiConfiguration.KeyMgmt.WPA_PSK)
                     }
                 }
                 priority = 999
             }
             Log.d(TAG, "WifiConfiguration SSID: ${conf.SSID}, preSharedKey: ${conf.preSharedKey != null}")
 
+            // 4. Xóa cấu hình mạng cũ nếu có
             try {
                 wifiManager.configuredNetworks?.let { networks ->
-                    Log.d(TAG, "Đang quét ${networks.size} mạng đã lưu để xóa cấu hình cũ.")
                     networks.filter { it.SSID == "\"$cleanSsid\"" || it.SSID == cleanSsid }
                         .forEach { 
                             val removed = wifiManager.removeNetwork(it.networkId)
@@ -81,6 +92,7 @@ class WifiSetupHelper(private val context: Context) {
                 Log.e(TAG, "Lỗi khi xóa mạng cũ", e)
             }
 
+            // 5. Thêm mạng và kết nối
             val netId = wifiManager.addNetwork(conf)
             Log.d(TAG, "wifiManager.addNetwork() trả về netId=$netId")
 
@@ -88,20 +100,21 @@ class WifiSetupHelper(private val context: Context) {
                 val saveRes = wifiManager.saveConfiguration()
                 Log.d(TAG, "wifiManager.saveConfiguration() trả về $saveRes")
                 
-                val disRes = wifiManager.disconnect()
-                Log.d(TAG, "wifiManager.disconnect() trả về $disRes")
+                wifiManager.disconnect()
                 
                 val enableRes = wifiManager.enableNetwork(netId, true)
                 Log.d(TAG, "wifiManager.enableNetwork($netId) trả về $enableRes")
                 
                 val recRes = wifiManager.reconnect()
                 Log.d(TAG, "wifiManager.reconnect() trả về $recRes")
+                
+                Log.d(TAG, "========== KẾT THÚC LỆNH KẾT NỐI WIFI ==========")
+                Pair(true, "Đã gửi lệnh kết nối vào '$cleanSsid'.")
             } else {
                 Log.e(TAG, "addNetwork() THẤT BẠI (-1)")
+                Log.d(TAG, "========== KẾT THÚC LỆNH KẾT NỐI WIFI ==========")
+                Pair(false, "Không thể thêm mạng WiFi. Vui lòng kiểm tra lại.")
             }
-
-            Log.d(TAG, "========== KẾT THÚC LỆNH KẾT NỐI WIFI ==========")
-            Pair(true, "Đã gửi lệnh kết nối vào '$cleanSsid'.")
         } catch (e: Throwable) {
             Log.e(TAG, "Lỗi hệ thống khi nối WiFi: ${e.message}", e)
             Pair(false, "Lỗi hệ thống khi nối WiFi: ${e.message}")
@@ -109,74 +122,16 @@ class WifiSetupHelper(private val context: Context) {
     }
 
     /**
-     * Nối mạng bằng ubus (chuẩn Phicomm) & wpa_cli (Cần Root)
+     * Tắt chế độ phát WiFi (SoftAP) thông qua Java Reflection.
+     * Không cần quyền root (su).
      */
-    private fun connectViaRoot(ssid: String, pass: String, type: String): Boolean {
-        return try {
-            val process = Runtime.getRuntime().exec("su")
-            val os = DataOutputStream(process.outputStream)
-            
-            // Xây dựng script đầy đủ log ra shell
-            val script = StringBuilder().apply {
-                append("echo '=== ROOT SCRIPT START ==='\n")
-                append("svc wifi enable\n")
-                append("sleep 1\n")
-                
-                // Cách 1: Native OpenWrt Phicomm
-                append("echo 'Chay ubus call onboarding...'\n")
-                append("ubus call onboarding connect '{\"ssid\":\"$ssid\", \"password\":\"$pass\"}' 2>&1\n")
-                
-                // Cách 2: wpa_cli
-                append("echo 'Chay wpa_cli...'\n")
-                append("wpa_cli -i wlan0 reconfigure 2>&1\n")
-                append("NID=\$(wpa_cli -i wlan0 add_network 2>&1)\n")
-                append("echo 'NID sinh ra la: '\$NID\n")
-                append("wpa_cli -i wlan0 set_network \$NID ssid '\"$ssid\"' 2>&1\n")
-                
-                if (type == "OPEN" || pass.isEmpty()) {
-                    append("wpa_cli -i wlan0 set_network \$NID key_mgmt NONE 2>&1\n")
-                } else {
-                    append("wpa_cli -i wlan0 set_network \$NID psk '\"$pass\"' 2>&1\n")
-                }
-                
-                append("wpa_cli -i wlan0 enable_network \$NID 2>&1\n")
-                append("wpa_cli -i wlan0 select_network \$NID 2>&1\n")
-                append("wpa_cli -i wlan0 save_config 2>&1\n")
-                append("wpa_cli -i wlan0 reassociate 2>&1\n")
-                append("echo '=== ROOT SCRIPT END ==='\n")
-                append("exit\n")
-            }.toString()
-
-            os.writeBytes(script)
-            os.flush()
-
-            // Đọc kết quả từ stdout & stderr
-            java.lang.Thread {
-                try {
-                    val reader = java.io.BufferedReader(java.io.InputStreamReader(process.inputStream))
-                    var line: String?
-                    while (reader.readLine().also { line = it } != null) {
-                        Log.d(TAG, "[ROOT OUT] $line")
-                    }
-                } catch (e: Exception) {}
-            }.start()
-            
-            java.lang.Thread {
-                try {
-                    val reader = java.io.BufferedReader(java.io.InputStreamReader(process.errorStream))
-                    var line: String?
-                    while (reader.readLine().also { line = it } != null) {
-                        Log.e(TAG, "[ROOT ERR] $line")
-                    }
-                } catch (e: Exception) {}
-            }.start()
-
-            val exitCode = process.waitFor()
-            Log.d(TAG, "Root script exitCode: $exitCode")
-            exitCode == 0
+    private fun disableSoftAp() {
+        try {
+            val method = wifiManager.javaClass.getMethod("setWifiApEnabled", WifiConfiguration::class.java, java.lang.Boolean.TYPE)
+            val result = method.invoke(wifiManager, null, false)
+            Log.d(TAG, "setWifiApEnabled(false) trả về: $result")
         } catch (e: Throwable) {
-            Log.e(TAG, "Lỗi khi chạy Root Script: ${e.message}", e)
-            false
+            Log.e(TAG, "Lỗi khi tắt SoftAP qua Reflection: ${e.message}")
         }
     }
 
