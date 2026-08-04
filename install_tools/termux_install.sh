@@ -56,7 +56,6 @@ echo ""
 echo "[3/4] Dang ket noi ADB toi loa Phicomm R1 (192.168.43.1:5555)..."
 
 adb start-server 2>&1
-adb disconnect 2>&1
 
 echo "[*] Gui lenh ket noi ADB..."
 adb connect 192.168.43.1:5555
