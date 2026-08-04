@@ -92,9 +92,15 @@ class WifiSetupHelper(private val context: Context) {
             Log.d(TAG, "addNetwork() trả về netId=$netId")
 
             if (netId != -1) {
+                val saved = wifiManager.saveConfiguration()
+                Log.d(TAG, "saveConfiguration() trả về: $saved")
+                
                 wifiManager.disconnect()
-                wifiManager.enableNetwork(netId, true)
-                wifiManager.reconnect()
+                val enableRes = wifiManager.enableNetwork(netId, true)
+                Log.d(TAG, "enableNetwork() trả về: $enableRes")
+                
+                val recRes = wifiManager.reconnect()
+                Log.d(TAG, "reconnect() trả về: $recRes")
                 
                 Log.d(TAG, "Đã gửi lệnh enableNetwork và reconnect thành công.")
                 Pair(true, "Đã gửi lệnh kết nối vào '$cleanSsid'.")
