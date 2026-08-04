@@ -20,7 +20,7 @@ class WifiSetupHelper(private val context: Context) {
         context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
 
     /**
-     * Kết nối loa vào mạng WiFi. Chạy trong Background Thread để không làm block HTTP server.
+     * Kết nối loa vào mạng WiFi chuẩn 100% steinwurf/adb-join-wifi
      */
     fun connectToWifi(ssid: String, password: String, passwordType: String? = null): Pair<Boolean, String> {
         val cleanSsid = ssid.trim()
@@ -31,107 +31,45 @@ class WifiSetupHelper(private val context: Context) {
         Log.d(TAG, "SSID='$cleanSsid', Type='$type', PassLength=${cleanPass.length}")
 
         return try {
-            // 1. Tắt điểm phát WiFi (SoftAP)
-            Log.d(TAG, "Đang tắt chế độ phát WiFi (SoftAP)...")
-            disableSoftAp()
-            Thread.sleep(1500)
-
-            // 2. Bật chế độ WiFi thu (Client Mode)
+            // Chuẩn steinwurf/adb-join-wifi: Bật wifi
             if (!wifiManager.isWifiEnabled) {
-                Log.d(TAG, "WiFi Client đang tắt. Đang bật...")
                 wifiManager.isWifiEnabled = true
             }
 
-            // Chờ tối đa 10 giây để WiFi thực sự bật (WIFI_STATE_ENABLED == 3)
-            var waitCount = 0
-            while (wifiManager.wifiState != WifiManager.WIFI_STATE_ENABLED && waitCount < 10) {
-                Log.d(TAG, "Đang chờ WiFi bật... Trạng thái hiện tại: ${wifiManager.wifiState}")
-                Thread.sleep(1000)
-                waitCount++
-            }
-            
-            if (wifiManager.wifiState != WifiManager.WIFI_STATE_ENABLED) {
-                Log.e(TAG, "LỖI: Không thể bật WiFi Client Mode. Trạng thái cuối: ${wifiManager.wifiState}")
-                return Pair(false, "Không thể bật WiFi trên loa.")
-            }
-            Log.d(TAG, "WiFi Client đã BẬT THÀNH CÔNG (Trạng thái: 3).")
+            // Chuẩn steinwurf/adb-join-wifi: Tạo cấu hình
+            val conf = WifiConfiguration()
+            conf.SSID = "\"$cleanSsid\""
 
-            // 3. Tạo cấu hình mạng
-            Log.d(TAG, "--- Đang cấu hình WifiConfiguration API ---")
-            val conf = WifiConfiguration().apply {
-                SSID = "\"$cleanSsid\""
-                when (type) {
-                    "WEP" -> {
-                        wepKeys[0] = "\"$cleanPass\""
-                        wepTxKeyIndex = 0
-                        allowedKeyManagement.set(WifiConfiguration.KeyMgmt.NONE)
-                        allowedGroupCiphers.set(WifiConfiguration.GroupCipher.WEP40)
-                    }
-                    "OPEN", "NONE" -> {
-                        allowedKeyManagement.set(WifiConfiguration.KeyMgmt.NONE)
-                    }
-                    else -> { // WPA/WPA2
-                        preSharedKey = "\"$cleanPass\""
-                        allowedKeyManagement.set(WifiConfiguration.KeyMgmt.WPA_PSK)
-                    }
-                }
-                priority = 999
-            }
-            Log.d(TAG, "WifiConfiguration SSID: ${conf.SSID}, preSharedKey: ${conf.preSharedKey != null}")
-
-            // 4. Xóa cấu hình mạng cũ nếu có
-            try {
-                wifiManager.configuredNetworks?.let { networks ->
-                    networks.filter { it.SSID == "\"$cleanSsid\"" || it.SSID == cleanSsid }
-                        .forEach { 
-                            val removed = wifiManager.removeNetwork(it.networkId)
-                            Log.d(TAG, "Đã xóa mạng cũ id=${it.networkId}, result=$removed")
-                        }
-                }
-            } catch (e: Throwable) {
-                Log.e(TAG, "Lỗi khi xóa mạng cũ", e)
+            if (type == "WEP") {
+                conf.wepKeys[0] = "\"$cleanPass\""
+                conf.wepTxKeyIndex = 0
+                conf.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.NONE)
+                conf.allowedGroupCiphers.set(WifiConfiguration.GroupCipher.WEP40)
+            } else if (type == "WPA") {
+                // CHỈ SET preSharedKey, KHÔNG SET allowedKeyManagement cho WPA!
+                conf.preSharedKey = "\"$cleanPass\""
+            } else if (type == "OPEN") {
+                conf.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.NONE)
             }
 
-            // 5. Thêm mạng và kết nối
+            // Chuẩn steinwurf/adb-join-wifi: Thực thi kết nối
             val netId = wifiManager.addNetwork(conf)
-            Log.d(TAG, "wifiManager.addNetwork() trả về netId=$netId")
+            Log.d(TAG, "addNetwork() trả về netId=$netId")
 
             if (netId != -1) {
-                val saveRes = wifiManager.saveConfiguration()
-                Log.d(TAG, "wifiManager.saveConfiguration() trả về $saveRes")
-                
                 wifiManager.disconnect()
+                wifiManager.enableNetwork(netId, true)
+                wifiManager.reconnect()
                 
-                val enableRes = wifiManager.enableNetwork(netId, true)
-                Log.d(TAG, "wifiManager.enableNetwork($netId) trả về $enableRes")
-                
-                val recRes = wifiManager.reconnect()
-                Log.d(TAG, "wifiManager.reconnect() trả về $recRes")
-                
-                Log.d(TAG, "========== KẾT THÚC LỆNH KẾT NỐI WIFI ==========")
+                Log.d(TAG, "Đã gửi lệnh enableNetwork và reconnect thành công.")
                 Pair(true, "Đã gửi lệnh kết nối vào '$cleanSsid'.")
             } else {
                 Log.e(TAG, "addNetwork() THẤT BẠI (-1)")
-                Log.d(TAG, "========== KẾT THÚC LỆNH KẾT NỐI WIFI ==========")
-                Pair(false, "Không thể thêm mạng WiFi. Vui lòng kiểm tra lại.")
+                Pair(false, "Không thể thêm mạng WiFi (netId = -1). Vui lòng kiểm tra lại.")
             }
         } catch (e: Throwable) {
             Log.e(TAG, "Lỗi hệ thống khi nối WiFi: ${e.message}", e)
             Pair(false, "Lỗi hệ thống khi nối WiFi: ${e.message}")
-        }
-    }
-
-    /**
-     * Tắt chế độ phát WiFi (SoftAP) thông qua Java Reflection.
-     * Không cần quyền root (su).
-     */
-    private fun disableSoftAp() {
-        try {
-            val method = wifiManager.javaClass.getMethod("setWifiApEnabled", WifiConfiguration::class.java, java.lang.Boolean.TYPE)
-            val result = method.invoke(wifiManager, null, false)
-            Log.d(TAG, "setWifiApEnabled(false) trả về: $result")
-        } catch (e: Throwable) {
-            Log.e(TAG, "Lỗi khi tắt SoftAP qua Reflection: ${e.message}")
         }
     }
 
