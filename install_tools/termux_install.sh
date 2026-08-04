@@ -93,6 +93,7 @@ adb -s 192.168.43.1:5555 shell "pm hide com.phicomm.speaker.airskill"
 adb -s 192.168.43.1:5555 shell "pm hide com.phicomm.speaker.otaservice"
 adb -s 192.168.43.1:5555 shell "pm hide com.phicomm.speaker.setup"
 adb -s 192.168.43.1:5555 shell "pm hide com.phicomm.speaker.voice"
+adb -s 192.168.43.1:5555 shell "pm hide com.phicomm.speaker.netctl"
 
 echo ""
 echo "[*] Dang bat Wi-Fi mode & khoi chay Web Server 8080..."
@@ -100,32 +101,11 @@ adb -s 192.168.43.1:5555 shell "svc wifi enable"
 adb -s 192.168.43.1:5555 shell "am start -n com.phicomm.gemini/.MainActivity"
 
 echo ""
-echo "[*] Dang khoi tao Root Daemon cho WiFi..."
-adb -s 192.168.43.1:5555 shell "cat << 'EOF' > /data/local/tmp/gemini_wifi.sh
-#!/system/bin/sh
-WIFI_FILE=/data/data/com.phicomm.gemini/files/wifi.txt
-while true; do
-  if [ -f \$WIFI_FILE ]; then
-    SSID=\$(head -n 1 \$WIFI_FILE | tr -d '\r')
-    PASS=\$(tail -n 1 \$WIFI_FILE | tr -d '\r')
-    rm \$WIFI_FILE
-    ubus call onboarding connect \"{\\\"ssid\\\":\\\"\$SSID\\\", \\\"key\\\":\\\"\$PASS\\\"}\"
-  fi
-  sleep 3
-done
-EOF"
-adb -s 192.168.43.1:5555 shell "chmod 755 /data/local/tmp/gemini_wifi.sh"
-# Kill daemon cu neu co, roi chay cai moi
-adb -s 192.168.43.1:5555 shell "killall gemini_wifi.sh 2>/dev/null"
-adb -s 192.168.43.1:5555 shell "nohup /data/local/tmp/gemini_wifi.sh >/dev/null 2>&1 &"
-
-echo ""
 echo "==================================================================="
 echo "  [HOAN TAT CAI DAT APK!]"
 echo "-------------------------------------------------------------------"
 echo ""
 echo "  ✅ App PhicommGemini va Web Server 8080 da duoc khoi chay tren loa!"
-echo "  ✅ Root Daemon cho WiFi da san sang!"
 echo ""
 echo "  📌 BUOC CUOI CUNG DE NOI WI-FI NHA:"
 echo "  1. Dam bao dien thoai van ket noi Wi-Fi 'Phicomm_R1_xxxx'."
