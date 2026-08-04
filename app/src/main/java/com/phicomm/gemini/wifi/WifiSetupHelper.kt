@@ -36,10 +36,10 @@ class WifiSetupHelper(private val context: Context) {
             // Nếu không tắt SoftAP, wifiManager.addNetwork() sẽ bị hệ điều hành chặn cứng và trả về -1!
             try {
                 Log.d(TAG, "Đang tắt SoftAP qua Reflection...")
-                val method = wifiManager.javaClass.getMethod("setWifiApEnabled", WifiConfiguration::class.java, java.lang.Boolean.TYPE)
+                val method = wifiManager.javaClass.getMethod("setWifiApEnabled", WifiConfiguration::class.java, Boolean::class.javaPrimitiveType)
                 val result = method.invoke(wifiManager, null, false)
                 Log.d(TAG, "Tắt SoftAP kết quả: $result")
-                Thread.sleep(1500) // Đợi chip WiFi xả trạng thái AP
+                Thread.sleep(2000) // Đợi chip WiFi xả trạng thái AP hoàn toàn
             } catch (e: Throwable) {
                 Log.e(TAG, "Lỗi khi tắt SoftAP: ${e.message}")
             }
