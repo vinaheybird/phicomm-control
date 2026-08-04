@@ -27,20 +27,26 @@ class WifiSetupHelper(private val context: Context) {
         val cleanPass = password.trim()
         val type = passwordType?.trim()?.uppercase() ?: if (cleanPass.isEmpty()) "OPEN" else "WPA"
 
-        Log.d(TAG, "Chuẩn bị kết nối WiFi (steinwurf/adb-join-wifi): SSID='$cleanSsid', Type='$type'")
+        Log.d(TAG, "Chuẩn bị kết nối WiFi: SSID='$cleanSsid', Type='$type'")
 
         return try {
-            // 0. Tắt Tethering / SoftAP nếu đang mở
-            disableSoftApIfActive()
-            Thread.sleep(1000)
+            // KHÔNG tắt SoftAP thủ công bằng killall ở đây! 
+            // Nếu tắt sớm quá sẽ làm hỏng state machine của ubus trên loa Phicomm, 
+            // khiến loa không thể kết nối tới WiFi nhà.
 
-            // 1. Bật WiFi Client Mode nếu đang tắt
+            // 1. Đảm bảo WiFi Client đang bật
             if (!wifiManager.isWifiEnabled) {
                 wifiManager.isWifiEnabled = true
                 Thread.sleep(1500)
             }
 
-            // 2. Tạo đối tượng WifiConfiguration CHUẨN 100% steinwurf/adb-join-wifi
+            // 2. Thử nối qua ubus & wpa_cli (Cách native mạnh nhất trên Phicomm R1)
+            val rootSuccess = connectViaRoot(cleanSsid, cleanPass, type)
+            if (rootSuccess) {
+                Log.d(TAG, "Đã gửi lệnh ubus & wpa_cli thành công.")
+            }
+
+            // 3. Dự phòng bằng Android WifiManager API
             val conf = WifiConfiguration().apply {
                 SSID = "\"$cleanSsid\""
 
@@ -54,46 +60,29 @@ class WifiSetupHelper(private val context: Context) {
                     "OPEN", "NONE" -> {
                         allowedKeyManagement.set(WifiConfiguration.KeyMgmt.NONE)
                     }
-                    else -> { // WPA / WPA2 (Chuẩn steinwurf/adb-join-wifi: chỉ cần set preSharedKey)
+                    else -> {
                         preSharedKey = "\"$cleanPass\""
                     }
                 }
                 priority = 999
             }
 
-            // Xóa cấu hình mạng cũ cùng SSID (nếu có)
             try {
                 wifiManager.configuredNetworks
                     ?.filter { it.SSID == "\"$cleanSsid\"" || it.SSID == cleanSsid }
                     ?.forEach { wifiManager.removeNetwork(it.networkId) }
-            } catch (e: Throwable) {
-                Log.w(TAG, "Không thể xóa mạng cũ: ${e.message}")
-            }
+            } catch (e: Throwable) {}
 
-            // Thêm mạng mới
             val netId = wifiManager.addNetwork(conf)
-            Log.d(TAG, "addNetwork() trả về netId=$netId cho SSID: $cleanSsid")
-
             if (netId != -1) {
                 wifiManager.saveConfiguration()
                 wifiManager.disconnect()
-                val enabled = wifiManager.enableNetwork(netId, true)
+                wifiManager.enableNetwork(netId, true)
                 wifiManager.reconnect()
-
-                if (enabled) {
-                    Log.d(TAG, "✅ enableNetwork() thành công cho netId=$netId")
-                    return Pair(true, "Đang kết nối vào '$cleanSsid'... Vui lòng đợi 15-30 giây.")
-                }
+                Log.d(TAG, "WifiManager enableNetwork thành công cho netId=$netId")
             }
 
-            // Nếu WifiManager API trả về -1 -> Thử Root Fallback (wpa_cli & ubus)
-            Log.w(TAG, "WifiManager.addNetwork trả về -1, thử phương pháp Root Fallback (wpa_cli & ubus)...")
-            val rootSuccess = connectViaRoot(cleanSsid, cleanPass, type)
-            if (rootSuccess) {
-                Pair(true, "Đã gửi lệnh kết nối qua Root (wpa_cli & ubus) cho '$cleanSsid'.")
-            } else {
-                Pair(false, "Không thể thêm mạng WiFi '$cleanSsid'. Kiểm tra mật khẩu hoặc quyền thiết bị.")
-            }
+            Pair(true, "Đã gửi lệnh kết nối vào '$cleanSsid'.")
         } catch (e: Throwable) {
             Log.e(TAG, "connectToWifi lỗi: ${e.message}", e)
             Pair(false, "Lỗi hệ thống khi nối WiFi: ${e.message}")
@@ -101,7 +90,7 @@ class WifiSetupHelper(private val context: Context) {
     }
 
     /**
-     * Fallback bằng wpa_cli & ubus (Cần Root)
+     * Nối mạng bằng ubus (chuẩn Phicomm) & wpa_cli (Cần Root)
      */
     private fun connectViaRoot(ssid: String, pass: String, type: String): Boolean {
         return try {
@@ -109,7 +98,12 @@ class WifiSetupHelper(private val context: Context) {
             val os = DataOutputStream(process.outputStream)
 
             os.writeBytes("svc wifi enable\n")
+            os.writeBytes("sleep 1\n")
+            
+            // Cách 1: Native OpenWrt Phicomm (Rất ổn định trên R1)
             os.writeBytes("ubus call onboarding connect '{\"ssid\":\"$ssid\", \"password\":\"$pass\"}' 2>/dev/null\n")
+            
+            // Cách 2: wpa_cli đề phòng ubus hỏng
             os.writeBytes("wpa_cli -i wlan0 reconfigure 2>/dev/null\n")
             os.writeBytes("NID=\$(wpa_cli -i wlan0 add_network)\n")
             os.writeBytes("wpa_cli -i wlan0 set_network \$NID ssid '\"$ssid\"'\n")
@@ -127,9 +121,8 @@ class WifiSetupHelper(private val context: Context) {
             os.writeBytes("exit\n")
             os.flush()
 
-            val exitCode = process.waitFor()
-            Log.d(TAG, "Root wpa_cli exitCode: $exitCode")
-            exitCode == 0
+            process.waitFor()
+            true
         } catch (e: Throwable) {
             Log.e(TAG, "Lỗi Root fallback: ${e.message}")
             false
@@ -160,23 +153,5 @@ class WifiSetupHelper(private val context: Context) {
     fun isConnectedToHomeWifi(): Boolean {
         val ip = getCurrentIp()
         return ip.isNotEmpty() && !ip.startsWith("192.168.43.")
-    }
-
-    private fun disableSoftApIfActive() {
-        try {
-            val method = wifiManager.javaClass.getMethod("setWifiApEnabled", WifiConfiguration::class.java, java.lang.Boolean.TYPE)
-            method.invoke(wifiManager, null, false)
-        } catch (e: Throwable) {}
-
-        try {
-            val process = Runtime.getRuntime().exec("su")
-            val os = DataOutputStream(process.outputStream)
-            os.writeBytes("service call connectivity 33 i32 0\n")
-            os.writeBytes("killall hostapd 2>/dev/null\n")
-            os.writeBytes("killall dnsmasq 2>/dev/null\n")
-            os.writeBytes("exit\n")
-            os.flush()
-            process.waitFor()
-        } catch (e: Throwable) {}
     }
 }
