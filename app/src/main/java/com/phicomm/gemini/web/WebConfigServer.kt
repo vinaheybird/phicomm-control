@@ -84,7 +84,6 @@ class WebConfigServer(
             }
 
             when (uri) {
-                // ── WiFi Setup ──────────────────────────────────────────────
                 "/api/wifi/connect" -> {
                     val ssid = session.parameters["ssid"]?.get(0) ?: ""
                     val password = session.parameters["password"]?.get(0) ?: ""
@@ -92,9 +91,20 @@ class WebConfigServer(
                         responseMap["success"] = false
                         responseMap["message"] = "Tên WiFi (SSID) không được để trống"
                     } else {
-                        val (success, message) = wifiSetupHelper.connectToWifi(ssid, password)
-                        responseMap["success"] = success
-                        responseMap["message"] = message
+                        // Trả về phản hồi thành công NGAY LẬP TỨC để trình duyệt nhận được kết quả
+                        // TRƯỚC KHI loa ngắt mạng SoftAP (Phicomm_R1_xxxx)
+                        responseMap["success"] = true
+                        responseMap["message"] = "Đã gửi lệnh kết nối. Loa đang thử nối vào '$ssid'."
+                        
+                        // Chạy lệnh kết nối ở background thread sau 1 giây
+                        Thread {
+                            try {
+                                Thread.sleep(1000)
+                                wifiSetupHelper.connectToWifi(ssid, password)
+                            } catch (e: Exception) {
+                                Log.e(TAG, "Lỗi background connectToWifi", e)
+                            }
+                        }.start()
                     }
                 }
 
