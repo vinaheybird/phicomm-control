@@ -13,7 +13,7 @@ import java.io.DataOutputStream
 class WifiSetupHelper(private val context: Context) {
 
     companion object {
-        private const val TAG = "WifiSetupHelper"
+        private const val TAG = "geminiwifi"
     }
 
     private val wifiManager =
@@ -27,29 +27,29 @@ class WifiSetupHelper(private val context: Context) {
         val cleanPass = password.trim()
         val type = passwordType?.trim()?.uppercase() ?: if (cleanPass.isEmpty()) "OPEN" else "WPA"
 
-        Log.d(TAG, "Chuẩn bị kết nối WiFi: SSID='$cleanSsid', Type='$type'")
+        Log.d(TAG, "========== BẮT ĐẦU KẾT NỐI WIFI ==========")
+        Log.d(TAG, "SSID='$cleanSsid', Type='$type', PassLength=${cleanPass.length}")
 
         return try {
-            // KHÔNG tắt SoftAP thủ công bằng killall ở đây! 
-            // Nếu tắt sớm quá sẽ làm hỏng state machine của ubus trên loa Phicomm, 
-            // khiến loa không thể kết nối tới WiFi nhà.
-
             // 1. Đảm bảo WiFi Client đang bật
             if (!wifiManager.isWifiEnabled) {
+                Log.d(TAG, "WiFi đang tắt, tiến hành bật isWifiEnabled = true")
                 wifiManager.isWifiEnabled = true
-                Thread.sleep(1500)
+                Thread.sleep(2000)
+                Log.d(TAG, "Trạng thái sau khi bật WiFi: ${wifiManager.wifiState}")
+            } else {
+                Log.d(TAG, "WiFi đã được bật sẵn.")
             }
 
             // 2. Thử nối qua ubus & wpa_cli (Cách native mạnh nhất trên Phicomm R1)
+            Log.d(TAG, "--- Đang gọi connectViaRoot ---")
             val rootSuccess = connectViaRoot(cleanSsid, cleanPass, type)
-            if (rootSuccess) {
-                Log.d(TAG, "Đã gửi lệnh ubus & wpa_cli thành công.")
-            }
+            Log.d(TAG, "Kết quả connectViaRoot: $rootSuccess")
 
             // 3. Dự phòng bằng Android WifiManager API
+            Log.d(TAG, "--- Đang cấu hình WifiConfiguration API ---")
             val conf = WifiConfiguration().apply {
                 SSID = "\"$cleanSsid\""
-
                 when (type) {
                     "WEP" -> {
                         wepKeys[0] = "\"$cleanPass\""
@@ -66,25 +66,44 @@ class WifiSetupHelper(private val context: Context) {
                 }
                 priority = 999
             }
+            Log.d(TAG, "WifiConfiguration SSID: ${conf.SSID}, preSharedKey: ${conf.preSharedKey != null}")
 
             try {
-                wifiManager.configuredNetworks
-                    ?.filter { it.SSID == "\"$cleanSsid\"" || it.SSID == cleanSsid }
-                    ?.forEach { wifiManager.removeNetwork(it.networkId) }
-            } catch (e: Throwable) {}
-
-            val netId = wifiManager.addNetwork(conf)
-            if (netId != -1) {
-                wifiManager.saveConfiguration()
-                wifiManager.disconnect()
-                wifiManager.enableNetwork(netId, true)
-                wifiManager.reconnect()
-                Log.d(TAG, "WifiManager enableNetwork thành công cho netId=$netId")
+                wifiManager.configuredNetworks?.let { networks ->
+                    Log.d(TAG, "Đang quét ${networks.size} mạng đã lưu để xóa cấu hình cũ.")
+                    networks.filter { it.SSID == "\"$cleanSsid\"" || it.SSID == cleanSsid }
+                        .forEach { 
+                            val removed = wifiManager.removeNetwork(it.networkId)
+                            Log.d(TAG, "Đã xóa mạng cũ id=${it.networkId}, result=$removed")
+                        }
+                }
+            } catch (e: Throwable) {
+                Log.e(TAG, "Lỗi khi xóa mạng cũ", e)
             }
 
+            val netId = wifiManager.addNetwork(conf)
+            Log.d(TAG, "wifiManager.addNetwork() trả về netId=$netId")
+
+            if (netId != -1) {
+                val saveRes = wifiManager.saveConfiguration()
+                Log.d(TAG, "wifiManager.saveConfiguration() trả về $saveRes")
+                
+                val disRes = wifiManager.disconnect()
+                Log.d(TAG, "wifiManager.disconnect() trả về $disRes")
+                
+                val enableRes = wifiManager.enableNetwork(netId, true)
+                Log.d(TAG, "wifiManager.enableNetwork($netId) trả về $enableRes")
+                
+                val recRes = wifiManager.reconnect()
+                Log.d(TAG, "wifiManager.reconnect() trả về $recRes")
+            } else {
+                Log.e(TAG, "addNetwork() THẤT BẠI (-1)")
+            }
+
+            Log.d(TAG, "========== KẾT THÚC LỆNH KẾT NỐI WIFI ==========")
             Pair(true, "Đã gửi lệnh kết nối vào '$cleanSsid'.")
         } catch (e: Throwable) {
-            Log.e(TAG, "connectToWifi lỗi: ${e.message}", e)
+            Log.e(TAG, "Lỗi hệ thống khi nối WiFi: ${e.message}", e)
             Pair(false, "Lỗi hệ thống khi nối WiFi: ${e.message}")
         }
     }
@@ -96,35 +115,67 @@ class WifiSetupHelper(private val context: Context) {
         return try {
             val process = Runtime.getRuntime().exec("su")
             val os = DataOutputStream(process.outputStream)
-
-            os.writeBytes("svc wifi enable\n")
-            os.writeBytes("sleep 1\n")
             
-            // Cách 1: Native OpenWrt Phicomm (Rất ổn định trên R1)
-            os.writeBytes("ubus call onboarding connect '{\"ssid\":\"$ssid\", \"password\":\"$pass\"}' 2>/dev/null\n")
-            
-            // Cách 2: wpa_cli đề phòng ubus hỏng
-            os.writeBytes("wpa_cli -i wlan0 reconfigure 2>/dev/null\n")
-            os.writeBytes("NID=\$(wpa_cli -i wlan0 add_network)\n")
-            os.writeBytes("wpa_cli -i wlan0 set_network \$NID ssid '\"$ssid\"'\n")
+            // Xây dựng script đầy đủ log ra shell
+            val script = StringBuilder().apply {
+                append("echo '=== ROOT SCRIPT START ==='\n")
+                append("svc wifi enable\n")
+                append("sleep 1\n")
+                
+                // Cách 1: Native OpenWrt Phicomm
+                append("echo 'Chay ubus call onboarding...'\n")
+                append("ubus call onboarding connect '{\"ssid\":\"$ssid\", \"password\":\"$pass\"}' 2>&1\n")
+                
+                // Cách 2: wpa_cli
+                append("echo 'Chay wpa_cli...'\n")
+                append("wpa_cli -i wlan0 reconfigure 2>&1\n")
+                append("NID=\$(wpa_cli -i wlan0 add_network 2>&1)\n")
+                append("echo 'NID sinh ra la: '\$NID\n")
+                append("wpa_cli -i wlan0 set_network \$NID ssid '\"$ssid\"' 2>&1\n")
+                
+                if (type == "OPEN" || pass.isEmpty()) {
+                    append("wpa_cli -i wlan0 set_network \$NID key_mgmt NONE 2>&1\n")
+                } else {
+                    append("wpa_cli -i wlan0 set_network \$NID psk '\"$pass\"' 2>&1\n")
+                }
+                
+                append("wpa_cli -i wlan0 enable_network \$NID 2>&1\n")
+                append("wpa_cli -i wlan0 select_network \$NID 2>&1\n")
+                append("wpa_cli -i wlan0 save_config 2>&1\n")
+                append("wpa_cli -i wlan0 reassociate 2>&1\n")
+                append("echo '=== ROOT SCRIPT END ==='\n")
+                append("exit\n")
+            }.toString()
 
-            if (type == "OPEN" || pass.isEmpty()) {
-                os.writeBytes("wpa_cli -i wlan0 set_network \$NID key_mgmt NONE\n")
-            } else {
-                os.writeBytes("wpa_cli -i wlan0 set_network \$NID psk '\"$pass\"'\n")
-            }
-
-            os.writeBytes("wpa_cli -i wlan0 enable_network \$NID\n")
-            os.writeBytes("wpa_cli -i wlan0 select_network \$NID\n")
-            os.writeBytes("wpa_cli -i wlan0 save_config\n")
-            os.writeBytes("wpa_cli -i wlan0 reassociate\n")
-            os.writeBytes("exit\n")
+            os.writeBytes(script)
             os.flush()
 
-            process.waitFor()
-            true
+            // Đọc kết quả từ stdout & stderr
+            java.lang.Thread {
+                try {
+                    val reader = java.io.BufferedReader(java.io.InputStreamReader(process.inputStream))
+                    var line: String?
+                    while (reader.readLine().also { line = it } != null) {
+                        Log.d(TAG, "[ROOT OUT] $line")
+                    }
+                } catch (e: Exception) {}
+            }.start()
+            
+            java.lang.Thread {
+                try {
+                    val reader = java.io.BufferedReader(java.io.InputStreamReader(process.errorStream))
+                    var line: String?
+                    while (reader.readLine().also { line = it } != null) {
+                        Log.e(TAG, "[ROOT ERR] $line")
+                    }
+                } catch (e: Exception) {}
+            }.start()
+
+            val exitCode = process.waitFor()
+            Log.d(TAG, "Root script exitCode: $exitCode")
+            exitCode == 0
         } catch (e: Throwable) {
-            Log.e(TAG, "Lỗi Root fallback: ${e.message}")
+            Log.e(TAG, "Lỗi khi chạy Root Script: ${e.message}", e)
             false
         }
     }
