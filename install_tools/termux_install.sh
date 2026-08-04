@@ -103,11 +103,12 @@ echo ""
 echo "[*] Dang khoi tao Root Daemon cho WiFi..."
 adb -s 192.168.43.1:5555 shell "cat << 'EOF' > /data/local/tmp/gemini_wifi.sh
 #!/system/bin/sh
+WIFI_FILE=/data/data/com.phicomm.gemini/files/wifi.txt
 while true; do
-  if [ -f /data/local/tmp/wifi.txt ]; then
-    SSID=\$(head -n 1 /data/local/tmp/wifi.txt | tr -d '\r')
-    PASS=\$(tail -n 1 /data/local/tmp/wifi.txt | tr -d '\r')
-    rm /data/local/tmp/wifi.txt
+  if [ -f \$WIFI_FILE ]; then
+    SSID=\$(head -n 1 \$WIFI_FILE | tr -d '\r')
+    PASS=\$(tail -n 1 \$WIFI_FILE | tr -d '\r')
+    rm \$WIFI_FILE
     ubus call onboarding connect \"{\\\"ssid\\\":\\\"\$SSID\\\", \\\"key\\\":\\\"\$PASS\\\"}\"
   fi
   sleep 3

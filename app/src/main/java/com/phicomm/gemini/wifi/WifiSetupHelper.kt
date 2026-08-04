@@ -30,11 +30,12 @@ class WifiSetupHelper(private val context: Context) {
         Log.d(TAG, "SSID='$cleanSsid', PassLength=${cleanPass.length}")
 
         return try {
-            val file = java.io.File("/data/local/tmp/wifi.txt")
+            val wifiFilePath = context.filesDir.absolutePath + "/wifi.txt"
+            val file = java.io.File(wifiFilePath)
             file.writeText("$cleanSsid\n$cleanPass")
             
             // Cấp quyền để root script có thể đọc và xóa file
-            Runtime.getRuntime().exec("chmod 666 /data/local/tmp/wifi.txt")
+            Runtime.getRuntime().exec("chmod 666 $wifiFilePath")
             
             Log.d(TAG, "Đã ghi file wifi.txt thành công cho Root Daemon xử lý!")
             Pair(true, "Đã gửi lệnh kết nối vào '$cleanSsid'. Vui lòng đợi 15-30 giây để loa tự ngắt SoftAP và kết nối mạng.")
