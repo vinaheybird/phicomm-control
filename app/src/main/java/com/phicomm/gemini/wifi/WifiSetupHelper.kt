@@ -6,24 +6,31 @@ import android.net.wifi.WifiManager
 import android.util.Log
 
 /**
- * WifiSetupHelper — Kết nối WiFi cho Android 5.1.
+ * WifiSetupHelper — Kết nối WiFi cho Android 5.1 (Phicomm R1).
  *
- * Fix lỗi addNetwork() = -1:
- *   Nguyên nhân: chip WiFi đang chạy SoftAP → addNetwork() luôn fail.
- *   Giải pháp: gọi addNetwork() SAU khi SoftAP đã tắt xong.
+ * Chiến lược: dùng wpa_cli + su thay vì WifiManager.addNetwork()
+ * vì addNetwork() luôn trả về -1 trên môi trường này.
  *
  * Flow:
- *   1. Start background thread ngay, trả về success cho HTTP caller
- *   2. Thread: delay 3s → tắt SoftAP → đợi chip reset 4s → bật WiFi client
- *   3. Xóa mạng cũ
- *   4. addNetwork() + saveConfiguration() ← chip đã rảnh
- *   5. Loop enableNetwork + reconnect (8 lần x 5s)
+ *   1. Trả về HTTP success ngay lập tức
+ *   2. Background thread:
+ *        a. Delay 3s (để response về điện thoại)
+ *        b. Tắt SoftAP
+ *        c. Bật WiFi client mode
+ *        d. Cấu hình WiFi qua wpa_cli (bypass WifiManager hoàn toàn)
+ *        e. Chờ lấy IP
  */
 @Suppress("DEPRECATION")
 class WifiSetupHelper(private val context: Context) {
 
     companion object {
         private const val TAG = "geminiwifi"
+        // Socket path của wpa_supplicant trên Phicomm R1
+        private val WPA_SOCKET_PATHS = listOf(
+            "/data/misc/wifi/sockets",
+            "/data/system/wpa_supplicant",
+            "/var/run/wpa_supplicant"
+        )
     }
 
     private val wifiManager =
@@ -42,111 +49,53 @@ class WifiSetupHelper(private val context: Context) {
         mThread?.interrupt()
         mThread = Thread {
             try {
-                // 1. Đợi 3s để HTTP response kịp về điện thoại
                 Thread.sleep(3000)
 
-                // 2. Tắt SoftAP
-                Log.d(TAG, "Đang tắt SoftAP...")
-                var softApOff = false
+                // Bước 1: Tắt SoftAP
+                Log.d(TAG, "[1] Tắt SoftAP...")
+                runRoot("svc wifi hotspot stop")
+                // Fallback: Reflection
                 try {
-                    Runtime.getRuntime().exec(arrayOf("su", "-c", "svc wifi hotspot stop")).waitFor()
-                    softApOff = true
-                    Log.d(TAG, "Tắt SoftAP via svc: OK")
-                } catch (e: Throwable) {
-                    Log.w(TAG, "svc hotspot stop thất bại: ${e.message}")
-                }
-                
-                if (!softApOff) {
-                    try {
-                        val m = wifiManager.javaClass.getMethod(
-                            "setWifiApEnabled",
-                            WifiConfiguration::class.java,
-                            Boolean::class.javaPrimitiveType
-                        )
-                        m.invoke(wifiManager, null, false)
-                        Log.d(TAG, "Tắt SoftAP via Reflection: OK")
-                    } catch (e2: Throwable) {
-                        Log.e(TAG, "Reflection thất bại: ${e2.message}")
-                    }
-                }
+                    val m = wifiManager.javaClass.getMethod(
+                        "setWifiApEnabled",
+                        WifiConfiguration::class.java,
+                        Boolean::class.javaPrimitiveType
+                    )
+                    m.invoke(wifiManager, null, false)
+                } catch (_: Throwable) {}
 
-                // 3. Đợi chip WiFi reset (chip cần thời gian thoát SoftAP mode)
-                Thread.sleep(4000)
+                Thread.sleep(3000)
 
-                // 4. Bật WiFi client mode
+                // Bước 2: Bật WiFi client mode
+                Log.d(TAG, "[2] Bật WiFi client mode...")
+                runRoot("svc wifi enable")
                 if (!wifiManager.isWifiEnabled) {
-                    Log.d(TAG, "Bật WiFi client mode...")
                     wifiManager.isWifiEnabled = true
-                    Thread.sleep(2000)
+                }
+                Thread.sleep(3000)
+
+                // Bước 3: Kết nối qua wpa_cli (bypass WifiManager)
+                Log.d(TAG, "[3] Thử kết nối qua wpa_cli...")
+                val wpaSuccess = connectViaWpaCli(cleanSsid, cleanPass, type)
+
+                if (!wpaSuccess) {
+                    // Fallback: thử WifiManager.addNetwork() lần cuối
+                    Log.d(TAG, "[3b] wpa_cli thất bại, fallback WifiManager...")
+                    connectViaWifiManager(cleanSsid, cleanPass, type)
                 }
 
-                // 5. Xóa mạng cũ cùng SSID
-                try {
-                    wifiManager.configuredNetworks?.filter {
-                        it.SSID == "\"$cleanSsid\"" || it.SSID == cleanSsid
-                    }?.forEach {
-                        Log.d(TAG, "Xóa mạng cũ netId=${it.networkId}")
-                        wifiManager.removeNetwork(it.networkId)
-                    }
-                } catch (e: Throwable) {
-                    Log.e(TAG, "Lỗi xóa mạng cũ: ${e.message}")
-                }
-
-                // 6. addNetwork() — bây giờ mới hợp lệ (SoftAP đã tắt)
-                val conf = WifiConfiguration()
-                conf.SSID = "\"$cleanSsid\""
-                
-                when (type) {
-                    "WEP" -> {
-                        conf.wepKeys[0] = "\"$cleanPass\""
-                        conf.wepTxKeyIndex = 0
-                        conf.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.NONE)
-                        conf.allowedGroupCiphers.set(WifiConfiguration.GroupCipher.WEP40)
-                        conf.allowedGroupCiphers.set(WifiConfiguration.GroupCipher.WEP104)
-                    }
-                    "WPA" -> {
-                        conf.preSharedKey = "\"$cleanPass\""
-                        conf.allowedProtocols.set(WifiConfiguration.Protocol.RSN)
-                        conf.allowedProtocols.set(WifiConfiguration.Protocol.WPA)
-                        conf.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.WPA_PSK)
-                        conf.allowedPairwiseCiphers.set(WifiConfiguration.PairwiseCipher.CCMP)
-                        conf.allowedPairwiseCiphers.set(WifiConfiguration.PairwiseCipher.TKIP)
-                        conf.allowedGroupCiphers.set(WifiConfiguration.GroupCipher.WEP40)
-                        conf.allowedGroupCiphers.set(WifiConfiguration.GroupCipher.WEP104)
-                        conf.allowedGroupCiphers.set(WifiConfiguration.GroupCipher.CCMP)
-                        conf.allowedGroupCiphers.set(WifiConfiguration.GroupCipher.TKIP)
-                    }
-                    else -> conf.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.NONE)
-                }
-
-                val networkId = wifiManager.addNetwork(conf)
-                Log.d(TAG, "addNetwork() → netId=$networkId")
-                
-                if (networkId == -1) {
-                    Log.e(TAG, "addNetwork() vẫn -1 dù đã tắt SoftAP!")
-                    return@Thread
-                }
-                wifiManager.saveConfiguration()
-
-                // 7. Loop enableNetwork + reconnect
-                for (i in 1..8) {
-                    if (Thread.currentThread().isInterrupted) break
-                    Log.d(TAG, "Joining netId=$networkId (lần $i/8)")
-                    
-                    wifiManager.disconnect()
-                    val en = wifiManager.enableNetwork(networkId, true)
-                    val rec = wifiManager.reconnect()
-                    
-                    Log.d(TAG, "enableNetwork=$en, reconnect=$rec")
-                    
-                    Thread.sleep(5000)
-                    
+                // Bước 4: Chờ lấy IP
+                Log.d(TAG, "[4] Chờ kết nối...")
+                for (i in 1..10) {
+                    Thread.sleep(3000)
                     val ip = getCurrentIp()
                     if (ip.isNotEmpty()) {
-                        Log.d(TAG, "✅ Thành công! IP=$ip SSID=${getCurrentSsid()}")
+                        Log.d(TAG, "✅ Kết nối thành công! IP=$ip SSID=${getCurrentSsid()}")
                         break
                     }
+                    Log.d(TAG, "Chờ IP... lần $i/10")
                 }
+
             } catch (e: InterruptedException) {
                 Log.d(TAG, "Thread bị interrupt.")
             } catch (e: Throwable) {
@@ -154,8 +103,127 @@ class WifiSetupHelper(private val context: Context) {
             }
         }
         mThread!!.start()
-        
-        return Pair(true, "Đã gửi lệnh kết nối. Loa sẽ tắt SoftAP rồi nối WiFi '$cleanSsid' sau ~3 giây!")
+
+        return Pair(true, "Đang kết nối vào WiFi '$cleanSsid'. Loa sẽ tắt SoftAP sau ~3 giây...")
+    }
+
+    /**
+     * Kết nối WiFi qua wpa_cli + su — không cần Android permission.
+     * Trả về true nếu thành công.
+     */
+    private fun connectViaWpaCli(ssid: String, password: String, type: String): Boolean {
+        // Tìm socket path hợp lệ
+        val socketPath = WPA_SOCKET_PATHS.firstOrNull { path ->
+            runRoot("test -d $path && echo OK").trim() == "OK"
+        } ?: run {
+            Log.w(TAG, "Không tìm thấy wpa_supplicant socket!")
+            // Thử không có -p flag
+            null
+        }
+
+        val wpaCli = if (socketPath != null) "wpa_cli -p $socketPath" else "wpa_cli"
+        Log.d(TAG, "Dùng wpa_cli: $wpaCli (socket=$socketPath)")
+
+        // Xóa tất cả network cũ để tránh conflict
+        val listOut = runRoot("$wpaCli list_networks")
+        Log.d(TAG, "Danh sách mạng hiện tại:\n$listOut")
+
+        // Thêm network mới
+        val addOut = runRoot("$wpaCli add_network").trim()
+        val netId = addOut.trim().toIntOrNull()
+        if (netId == null) {
+            Log.e(TAG, "wpa_cli add_network thất bại: '$addOut'")
+            return false
+        }
+        Log.d(TAG, "wpa_cli add_network → netId=$netId")
+
+        // Set SSID
+        val ssidEscaped = ssid.replace("\"", "\\\"")
+        runRoot("$wpaCli set_network $netId ssid '\"$ssidEscaped\"'")
+
+        when (type) {
+            "WPA" -> {
+                val passEscaped = password.replace("\"", "\\\"")
+                runRoot("$wpaCli set_network $netId key_mgmt WPA-PSK")
+                runRoot("$wpaCli set_network $netId psk '\"$passEscaped\"'")
+            }
+            "WEP" -> {
+                runRoot("$wpaCli set_network $netId key_mgmt NONE")
+                runRoot("$wpaCli set_network $netId wep_key0 '\"$password\"'")
+                runRoot("$wpaCli set_network $netId wep_tx_keyidx 0")
+            }
+            else -> {
+                runRoot("$wpaCli set_network $netId key_mgmt NONE")
+            }
+        }
+
+        // Enable và select
+        val enableOut = runRoot("$wpaCli enable_network $netId").trim()
+        val selectOut = runRoot("$wpaCli select_network $netId").trim()
+        val saveOut = runRoot("$wpaCli save_config").trim()
+        val reconnOut = runRoot("$wpaCli reconnect").trim()
+
+        Log.d(TAG, "enable=$enableOut, select=$selectOut, save=$saveOut, reconnect=$reconnOut")
+
+        return enableOut == "OK" || selectOut == "OK"
+    }
+
+    /**
+     * Fallback: dùng WifiManager.addNetwork() (có thể fail trên Android 5.1 SoftAP)
+     */
+    private fun connectViaWifiManager(ssid: String, password: String, type: String) {
+        val conf = WifiConfiguration()
+        conf.SSID = "\"$ssid\""
+
+        when (type) {
+            "WEP" -> {
+                conf.wepKeys[0] = "\"$password\""
+                conf.wepTxKeyIndex = 0
+                conf.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.NONE)
+                conf.allowedGroupCiphers.set(WifiConfiguration.GroupCipher.WEP40)
+                conf.allowedGroupCiphers.set(WifiConfiguration.GroupCipher.WEP104)
+            }
+            "WPA" -> {
+                conf.preSharedKey = "\"$password\""
+                conf.allowedProtocols.set(WifiConfiguration.Protocol.RSN)
+                conf.allowedProtocols.set(WifiConfiguration.Protocol.WPA)
+                conf.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.WPA_PSK)
+                conf.allowedPairwiseCiphers.set(WifiConfiguration.PairwiseCipher.CCMP)
+                conf.allowedPairwiseCiphers.set(WifiConfiguration.PairwiseCipher.TKIP)
+                conf.allowedGroupCiphers.set(WifiConfiguration.GroupCipher.WEP40)
+                conf.allowedGroupCiphers.set(WifiConfiguration.GroupCipher.WEP104)
+                conf.allowedGroupCiphers.set(WifiConfiguration.GroupCipher.CCMP)
+                conf.allowedGroupCiphers.set(WifiConfiguration.GroupCipher.TKIP)
+            }
+            else -> conf.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.NONE)
+        }
+
+        val netId = wifiManager.addNetwork(conf)
+        Log.d(TAG, "WifiManager.addNetwork() → netId=$netId")
+        if (netId != -1) {
+            wifiManager.disconnect()
+            wifiManager.enableNetwork(netId, true)
+            wifiManager.reconnect()
+            wifiManager.saveConfiguration()
+        }
+    }
+
+    /**
+     * Chạy lệnh shell với root, trả về stdout.
+     */
+    private fun runRoot(cmd: String): String {
+        return try {
+            val proc = Runtime.getRuntime().exec(arrayOf("su", "-c", cmd))
+            val out = proc.inputStream.bufferedReader().readText()
+            val err = proc.errorStream.bufferedReader().readText()
+            proc.waitFor()
+            if (out.isNotBlank()) Log.v(TAG, "su[$cmd] → $out")
+            if (err.isNotBlank()) Log.w(TAG, "su[$cmd] err → $err")
+            out
+        } catch (e: Throwable) {
+            Log.e(TAG, "runRoot($cmd) lỗi: ${e.message}")
+            ""
+        }
     }
 
     fun getCurrentSsid(): String = try {
