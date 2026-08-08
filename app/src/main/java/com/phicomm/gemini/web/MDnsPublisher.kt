@@ -3,6 +3,7 @@ package com.phicomm.gemini.web
 import android.content.Context
 import android.net.nsd.NsdManager
 import android.net.nsd.NsdServiceInfo
+import android.net.wifi.WifiManager
 import android.util.Log
 
 class MDnsPublisher(private val context: Context) {
@@ -14,11 +15,18 @@ class MDnsPublisher(private val context: Context) {
 
     private var nsdManager: NsdManager? = null
     private var registrationListener: NsdManager.RegistrationListener? = null
+    private var multicastLock: WifiManager.MulticastLock? = null
 
     fun registerService(port: Int) {
         try {
             // Hủy đăng ký cũ nếu có trước khi đăng ký mới
             unregisterService()
+
+            // Lấy MulticastLock để cho phép nhận gói tin mDNS
+            val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
+            multicastLock = wifiManager?.createMulticastLock("PhicommMDnsLock")
+            multicastLock?.setReferenceCounted(true)
+            multicastLock?.acquire()
 
             nsdManager = context.getSystemService(Context.NSD_SERVICE) as? NsdManager
             if (nsdManager == null) return
@@ -59,6 +67,10 @@ class MDnsPublisher(private val context: Context) {
             if (registrationListener != null) {
                 nsdManager?.unregisterService(registrationListener)
                 registrationListener = null
+            }
+            if (multicastLock != null && multicastLock!!.isHeld) {
+                multicastLock?.release()
+                multicastLock = null
             }
         } catch (e: IllegalArgumentException) {
             // Đã được unregister hoặc chưa đăng ký thành công
