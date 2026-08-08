@@ -5,6 +5,7 @@ import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothProfile
 import android.content.Context
 import android.content.SharedPreferences
+import android.provider.Settings
 import android.util.Log
 import java.lang.reflect.Method
 
@@ -132,7 +133,8 @@ object BluetoothController {
      */
     private fun setSystemMode(mode: String) {
         try {
-            Runtime.getRuntime().exec(arrayOf("settings", "put", "system", "FXSystemMode", mode))
+            val cr = context?.contentResolver ?: return
+            Settings.System.putString(cr, "FXSystemMode", mode)
             Log.d(TAG, "Đã set FXSystemMode=$mode")
         } catch (e: Exception) {
             Log.e(TAG, "Lỗi set FXSystemMode: ${e.message}")
