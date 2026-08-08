@@ -23,13 +23,16 @@ object BluetoothController {
     private var context: Context? = null
     private var prefs: SharedPreferences? = null
 
+    private val PROFILE_A2DP_SINK = 11
+
     private val btStateReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             val action = intent?.action
             if (action == BluetoothAdapter.ACTION_STATE_CHANGED) {
                 val state = intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.ERROR)
                 if (state == BluetoothAdapter.STATE_ON) {
-                    Log.d(TAG, "Bluetooth vừa được bật, khởi tạo lại A2DP Profile...")
+                    Log.d(TAG, "Bluetooth vừa được bật, khởi tạo lại A2DP_SINK Profile và set connectable...")
+                    ensureConnectable()
                     initA2dpProfile()
                 } else if (state == BluetoothAdapter.STATE_OFF) {
                     Log.d(TAG, "Bluetooth đã tắt, xóa A2DP Profile.")
@@ -42,23 +45,38 @@ object BluetoothController {
                 try {
                     Log.d(TAG, "Nhận yêu cầu ghép đôi từ ${device?.name} (Kiểu: $type). Đang tự động chấp nhận...")
                     
-                    // Gọi hàm ẩn setPairingConfirmation(true) qua reflection
                     val confirmMethod = device?.javaClass?.getMethod("setPairingConfirmation", Boolean::class.javaPrimitiveType)
                     confirmMethod?.invoke(device, true)
 
-                    // Nếu là mã PIN mặc định 0000 hoặc 1234
                     if (type == 0 /* PAIRING_VARIANT_PIN */) {
                         val pinMethod = device?.javaClass?.getMethod("setPin", ByteArray::class.java)
                         pinMethod?.invoke(device, "0000".toByteArray())
                     }
 
-                    // Chặn hệ thống hiện popup (nếu có)
                     abortBroadcast()
                     Log.d(TAG, "Đã tự động chấp nhận ghép đôi với ${device?.name}")
                 } catch (e: Exception) {
                     Log.e(TAG, "Lỗi tự động chấp nhận ghép đôi: ${e.message}", e)
                 }
             }
+        }
+    }
+
+    private fun ensureConnectable() {
+        try {
+            val adapter = bluetoothAdapter ?: return
+            // Thử gọi setScanMode(int)
+            try {
+                val method = adapter.javaClass.getMethod("setScanMode", Int::class.javaPrimitiveType)
+                method.invoke(adapter, BluetoothAdapter.SCAN_MODE_CONNECTABLE)
+            } catch (e: Exception) {
+                // Thử gọi setScanMode(int, int)
+                val method = adapter.javaClass.getMethod("setScanMode", Int::class.javaPrimitiveType, Int::class.javaPrimitiveType)
+                method.invoke(adapter, BluetoothAdapter.SCAN_MODE_CONNECTABLE, 0)
+            }
+            Log.d(TAG, "Đã set SCAN_MODE_CONNECTABLE")
+        } catch (e: Exception) {
+            Log.e(TAG, "Không thể set SCAN_MODE_CONNECTABLE qua reflection", e)
         }
     }
 
@@ -69,11 +87,12 @@ object BluetoothController {
         val filter = IntentFilter().apply {
             addAction(BluetoothAdapter.ACTION_STATE_CHANGED)
             addAction(BluetoothDevice.ACTION_PAIRING_REQUEST)
-            priority = IntentFilter.SYSTEM_HIGH_PRIORITY - 1 // Đặt độ ưu tiên cao để chặn popup
+            priority = IntentFilter.SYSTEM_HIGH_PRIORITY - 1 
         }
         context?.registerReceiver(btStateReceiver, filter)
 
         if (bluetoothAdapter?.isEnabled == true) {
+            ensureConnectable()
             initA2dpProfile()
         }
     }
@@ -81,9 +100,9 @@ object BluetoothController {
     private fun initA2dpProfile() {
         bluetoothAdapter?.getProfileProxy(context, object : BluetoothProfile.ServiceListener {
             override fun onServiceConnected(profile: Int, proxy: BluetoothProfile?) {
-                if (profile == BluetoothProfile.A2DP) {
+                if (profile == PROFILE_A2DP_SINK) {
                     a2dpProfile = proxy
-                    Log.d(TAG, "Dịch vụ A2DP Bluetooth đã sẵn sàng.")
+                    Log.d(TAG, "Dịch vụ A2DP_SINK Bluetooth đã sẵn sàng.")
                     if (isAutoReconnectEnabled()) {
                         reconnectLastDevice()
                     }
@@ -91,12 +110,12 @@ object BluetoothController {
             }
 
             override fun onServiceDisconnected(profile: Int) {
-                if (profile == BluetoothProfile.A2DP) {
+                if (profile == PROFILE_A2DP_SINK) {
                     a2dpProfile = null
-                    Log.d(TAG, "Dịch vụ A2DP Bluetooth đã ngắt.")
+                    Log.d(TAG, "Dịch vụ A2DP_SINK Bluetooth đã ngắt.")
                 }
             }
-        }, BluetoothProfile.A2DP)
+        }, PROFILE_A2DP_SINK)
     }
 
     fun isBluetoothSupported(): Boolean = bluetoothAdapter != null
