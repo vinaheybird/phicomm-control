@@ -107,9 +107,9 @@ object BluetoothController {
                 if (profile == PROFILE_A2DP_SINK) {
                     a2dpProfile = proxy
                     Log.d(TAG, "Dịch vụ A2DP_SINK Bluetooth đã sẵn sàng.")
-                    if (isAutoReconnectEnabled()) {
-                        reconnectLastDevice()
-                    }
+                    // KHÔNG gọi reconnectLastDevice() ở đây.
+                    // Windows/thiết bị đã ghép đôi sẽ tự kết nối lại.
+                    // Gọi connect từ app gây ra double-connect → EchoService disconnect.
                 }
             }
 
