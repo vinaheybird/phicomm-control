@@ -5,7 +5,6 @@ import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothProfile
 import android.content.Context
 import android.content.SharedPreferences
-import android.provider.Settings
 import android.util.Log
 import java.lang.reflect.Method
 
@@ -20,44 +19,57 @@ object BluetoothController {
     private const val KEY_AUTO_RECONNECT = "auto_reconnect_enabled"
 
     private var bluetoothAdapter: BluetoothAdapter? = BluetoothAdapter.getDefaultAdapter()
-    private var a2dpProfile: BluetoothProfile? = null
     private var context: Context? = null
     private var prefs: SharedPreferences? = null
 
-    private val PROFILE_A2DP_SINK = 11
+    // Theo dõi thiết bị đang kết nối qua BroadcastReceiver thay vì profile proxy
+    private var connectedDeviceAddress: String? = null
+    private var connectedDeviceName: String? = null
 
     private val btStateReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            val action = intent?.action
-            if (action == BluetoothAdapter.ACTION_STATE_CHANGED) {
-                val state = intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.ERROR)
-                if (state == BluetoothAdapter.STATE_ON) {
-                    Log.d(TAG, "Bluetooth vừa được bật, khởi tạo lại A2DP_SINK Profile và set connectable...")
-                    ensureConnectable()
-                    initA2dpProfile()
-                } else if (state == BluetoothAdapter.STATE_OFF) {
-                    Log.d(TAG, "Bluetooth đã tắt, xóa A2DP Profile.")
-                    a2dpProfile = null
-                }
-            } else if (action == BluetoothDevice.ACTION_PAIRING_REQUEST) {
-                val device = intent.getParcelableExtra<BluetoothDevice>(BluetoothDevice.EXTRA_DEVICE)
-                val type = intent.getIntExtra(BluetoothDevice.EXTRA_PAIRING_VARIANT, BluetoothDevice.ERROR)
-                
-                try {
-                    Log.d(TAG, "Nhận yêu cầu ghép đôi từ ${device?.name} (Kiểu: $type). Đang tự động chấp nhận...")
-                    
-                    val confirmMethod = device?.javaClass?.getMethod("setPairingConfirmation", Boolean::class.javaPrimitiveType)
-                    confirmMethod?.invoke(device, true)
-
-                    if (type == 0 /* PAIRING_VARIANT_PIN */) {
-                        val pinMethod = device?.javaClass?.getMethod("setPin", ByteArray::class.java)
-                        pinMethod?.invoke(device, "0000".toByteArray())
+        override fun onReceive(ctx: Context?, intent: Intent?) {
+            when (intent?.action) {
+                BluetoothAdapter.ACTION_STATE_CHANGED -> {
+                    val state = intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.ERROR)
+                    if (state == BluetoothAdapter.STATE_ON) {
+                        Log.d(TAG, "Bluetooth vừa bật, đảm bảo SCAN_MODE_CONNECTABLE...")
+                        ensureConnectable()
+                    } else if (state == BluetoothAdapter.STATE_OFF) {
+                        connectedDeviceAddress = null
+                        connectedDeviceName = null
+                        Log.d(TAG, "Bluetooth đã tắt.")
                     }
-
-                    abortBroadcast()
-                    Log.d(TAG, "Đã tự động chấp nhận ghép đôi với ${device?.name}")
-                } catch (e: Exception) {
-                    Log.e(TAG, "Lỗi tự động chấp nhận ghép đôi: ${e.message}", e)
+                }
+                BluetoothDevice.ACTION_ACL_CONNECTED -> {
+                    val device = intent.getParcelableExtra<BluetoothDevice>(BluetoothDevice.EXTRA_DEVICE)
+                    connectedDeviceAddress = device?.address
+                    connectedDeviceName = device?.name
+                    Log.d(TAG, "ACL Connected: ${device?.name} (${device?.address})")
+                }
+                BluetoothDevice.ACTION_ACL_DISCONNECTED -> {
+                    val device = intent.getParcelableExtra<BluetoothDevice>(BluetoothDevice.EXTRA_DEVICE)
+                    if (device?.address == connectedDeviceAddress) {
+                        Log.d(TAG, "ACL Disconnected: ${device?.name}")
+                        connectedDeviceAddress = null
+                        connectedDeviceName = null
+                    }
+                }
+                BluetoothDevice.ACTION_PAIRING_REQUEST -> {
+                    val device = intent.getParcelableExtra<BluetoothDevice>(BluetoothDevice.EXTRA_DEVICE)
+                    val type = intent.getIntExtra(BluetoothDevice.EXTRA_PAIRING_VARIANT, BluetoothDevice.ERROR)
+                    try {
+                        Log.d(TAG, "Yêu cầu ghép đôi từ ${device?.name} (type=$type). Tự động chấp nhận...")
+                        val confirmMethod = device?.javaClass?.getMethod("setPairingConfirmation", Boolean::class.javaPrimitiveType)
+                        confirmMethod?.invoke(device, true)
+                        if (type == 0) {
+                            val pinMethod = device?.javaClass?.getMethod("setPin", ByteArray::class.java)
+                            pinMethod?.invoke(device, "0000".toByteArray())
+                        }
+                        abortBroadcast()
+                        Log.d(TAG, "Đã chấp nhận ghép đôi với ${device?.name}")
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Lỗi chấp nhận ghép đôi: ${e.message}", e)
+                    }
                 }
             }
         }
@@ -66,18 +78,16 @@ object BluetoothController {
     private fun ensureConnectable() {
         try {
             val adapter = bluetoothAdapter ?: return
-            // Thử gọi setScanMode(int)
             try {
                 val method = adapter.javaClass.getMethod("setScanMode", Int::class.javaPrimitiveType)
                 method.invoke(adapter, BluetoothAdapter.SCAN_MODE_CONNECTABLE)
             } catch (e: Exception) {
-                // Thử gọi setScanMode(int, int)
                 val method = adapter.javaClass.getMethod("setScanMode", Int::class.javaPrimitiveType, Int::class.javaPrimitiveType)
                 method.invoke(adapter, BluetoothAdapter.SCAN_MODE_CONNECTABLE, 0)
             }
             Log.d(TAG, "Đã set SCAN_MODE_CONNECTABLE")
         } catch (e: Exception) {
-            Log.e(TAG, "Không thể set SCAN_MODE_CONNECTABLE qua reflection", e)
+            Log.e(TAG, "Không thể set SCAN_MODE_CONNECTABLE: ${e.message}")
         }
     }
 
@@ -87,85 +97,40 @@ object BluetoothController {
 
         val filter = IntentFilter().apply {
             addAction(BluetoothAdapter.ACTION_STATE_CHANGED)
+            addAction(BluetoothDevice.ACTION_ACL_CONNECTED)
+            addAction(BluetoothDevice.ACTION_ACL_DISCONNECTED)
             addAction(BluetoothDevice.ACTION_PAIRING_REQUEST)
-            priority = IntentFilter.SYSTEM_HIGH_PRIORITY - 1 
+            priority = IntentFilter.SYSTEM_HIGH_PRIORITY - 1
         }
         context?.registerReceiver(btStateReceiver, filter)
 
-        // Set FXSystemMode=bluetooth ngay khi khởi động để EchoService không can thiệp
-        setSystemMode("bluetooth")
-
         if (bluetoothAdapter?.isEnabled == true) {
             ensureConnectable()
-            initA2dpProfile()
         }
-    }
-
-    private fun initA2dpProfile() {
-        bluetoothAdapter?.getProfileProxy(context, object : BluetoothProfile.ServiceListener {
-            override fun onServiceConnected(profile: Int, proxy: BluetoothProfile?) {
-                if (profile == PROFILE_A2DP_SINK) {
-                    a2dpProfile = proxy
-                    Log.d(TAG, "Dịch vụ A2DP_SINK Bluetooth đã sẵn sàng.")
-                    // KHÔNG gọi reconnectLastDevice() ở đây.
-                    // Windows/thiết bị đã ghép đôi sẽ tự kết nối lại.
-                    // Gọi connect từ app gây ra double-connect → EchoService disconnect.
-                }
-            }
-
-            override fun onServiceDisconnected(profile: Int) {
-                if (profile == PROFILE_A2DP_SINK) {
-                    a2dpProfile = null
-                    Log.d(TAG, "Dịch vụ A2DP_SINK Bluetooth đã ngắt.")
-                }
-            }
-        }, PROFILE_A2DP_SINK)
     }
 
     fun isBluetoothSupported(): Boolean = bluetoothAdapter != null
 
     fun isBluetoothEnabled(): Boolean = bluetoothAdapter?.isEnabled == true
 
-    /**
-     * Đặt FXSystemMode để EchoService (app gốc Phicomm) không tự ngắt kết nối Bluetooth.
-     * mode="bluetooth": EchoService cho phép kết nối BT.
-     * mode="normal": EchoService nghĩ loa đang ở chế độ Wifi/AI, sẽ ngắt kết nối BT.
-     */
-    private fun setSystemMode(mode: String) {
-        try {
-            val cr = context?.contentResolver ?: return
-            Settings.System.putString(cr, "FXSystemMode", mode)
-            Log.d(TAG, "Đã set FXSystemMode=$mode")
-        } catch (e: Exception) {
-            Log.e(TAG, "Lỗi set FXSystemMode: ${e.message}")
-        }
-    }
-
     fun toggleBluetooth(): Boolean {
         val adapter = bluetoothAdapter ?: return false
         return if (adapter.isEnabled) {
-            setSystemMode("normal")
             adapter.disable()
         } else {
-            setSystemMode("bluetooth")
             adapter.enable()
         }
     }
 
     fun enableBluetooth(): Boolean {
         val adapter = bluetoothAdapter ?: return false
-        if (!adapter.isEnabled) {
-            setSystemMode("bluetooth")
-            return adapter.enable()
-        }
+        if (!adapter.isEnabled) return adapter.enable()
         return true
     }
 
     fun disableBluetooth(): Boolean {
         val adapter = bluetoothAdapter ?: return false
-        if (adapter.isEnabled) {
-            return adapter.disable()
-        }
+        if (adapter.isEnabled) return adapter.disable()
         return true
     }
 
@@ -173,28 +138,26 @@ object BluetoothController {
         val adapter = bluetoothAdapter ?: return emptyList()
         if (!adapter.isEnabled) return emptyList()
 
-        val pairedSet = adapter.bondedDevices?.toMutableSet() ?: mutableSetOf()
-        val connectedDevice = getConnectedDevice()
+        val bonded = adapter.bondedDevices ?: return emptyList()
+        val connectedAddr = connectedDeviceAddress
 
-        // Phải đảm bảo thiết bị đang kết nối cũng hiển thị trong danh sách
-        if (connectedDevice != null && !pairedSet.contains(connectedDevice)) {
-            pairedSet.add(connectedDevice)
-        }
-
-        return pairedSet.map { device ->
+        return bonded.map { device ->
             BluetoothDeviceInfo(
                 name = device.name ?: "Thiết bị không tên",
                 address = device.address,
-                isPaired = adapter.bondedDevices?.contains(device) == true,
-                isConnected = (device.address == connectedDevice?.address)
+                isPaired = true,
+                isConnected = (device.address == connectedAddr)
             )
         }
     }
 
     fun getConnectedDevice(): BluetoothDevice? {
-        val a2dp = a2dpProfile ?: return null
-        val connectedDevices = a2dp.connectedDevices
-        return if (connectedDevices.isNotEmpty()) connectedDevices[0] else null
+        val addr = connectedDeviceAddress ?: return null
+        return try {
+            bluetoothAdapter?.getRemoteDevice(addr)
+        } catch (e: Exception) {
+            null
+        }
     }
 
     fun connectDevice(address: String): Boolean {
@@ -210,42 +173,34 @@ object BluetoothController {
 
         saveLastDevice(address)
 
-        // Phải ghép đôi trước khi kết nối A2DP
         if (device.bondState == BluetoothDevice.BOND_NONE) {
             Log.d(TAG, "Thiết bị chưa ghép đôi, bắt đầu ghép đôi...")
             return device.createBond()
         }
 
-        val a2dp = a2dpProfile
-        if (a2dp != null) {
-            try {
-                val connectMethod: Method = a2dp.javaClass.getMethod("connect", BluetoothDevice::class.java)
-                connectMethod.isAccessible = true
-                val result = connectMethod.invoke(a2dp, device) as Boolean
-                Log.d(TAG, "Kết nối A2DP đến ${device.name} ($address): $result")
-                return result
-            } catch (e: Exception) {
-                Log.e(TAG, "Không thể gọi hàm connect A2DP qua reflection: ${e.message}", e)
-            }
-        } else {
-            Log.e(TAG, "a2dpProfile đang null, không thể kết nối ngay lúc này!")
+        // Dùng BluetoothDevice.connect() qua reflection — không cần giữ profile proxy
+        try {
+            val connectMethod: Method = device.javaClass.getMethod("connect")
+            connectMethod.isAccessible = true
+            connectMethod.invoke(device)
+            Log.d(TAG, "Đã gọi device.connect() cho $address")
+            return true
+        } catch (e: Exception) {
+            Log.e(TAG, "Lỗi device.connect(): ${e.message}", e)
         }
-
         return false
     }
 
     fun disconnectCurrentDevice(): Boolean {
-        val a2dp = a2dpProfile ?: return false
-        val currentDevice = getConnectedDevice() ?: return true
-
+        val device = getConnectedDevice() ?: return true
         try {
-            val disconnectMethod: Method = a2dp.javaClass.getMethod("disconnect", BluetoothDevice::class.java)
+            val disconnectMethod: Method = device.javaClass.getMethod("disconnect")
             disconnectMethod.isAccessible = true
-            val result = disconnectMethod.invoke(a2dp, currentDevice) as Boolean
-            Log.d(TAG, "Ngắt kết nối A2DP khỏi ${currentDevice.name}: $result")
-            return result
+            disconnectMethod.invoke(device)
+            Log.d(TAG, "Đã gọi device.disconnect() cho ${device.address}")
+            return true
         } catch (e: Exception) {
-            Log.e(TAG, "Không thể ngắt kết nối A2DP qua reflection: ${e.message}", e)
+            Log.e(TAG, "Lỗi device.disconnect(): ${e.message}", e)
         }
         return false
     }
@@ -262,17 +217,15 @@ object BluetoothController {
         try {
             val method: Method = adapter.javaClass.getMethod("setScanMode", Int::class.javaPrimitiveType, Int::class.javaPrimitiveType)
             method.invoke(adapter, BluetoothAdapter.SCAN_MODE_CONNECTABLE_DISCOVERABLE, durationSeconds)
-            Log.d(TAG, "Đã bật chế độ dò tìm Bluetooth trong $durationSeconds giây")
+            Log.d(TAG, "Đã bật dò tìm Bluetooth trong $durationSeconds giây")
             return true
         } catch (e: Exception) {
-            Log.e(TAG, "Lỗi bật setScanMode discoverable: ${e.message}", e)
+            Log.e(TAG, "Lỗi setScanMode discoverable: ${e.message}", e)
         }
         return false
     }
 
-    fun isAutoReconnectEnabled(): Boolean {
-        return prefs?.getBoolean(KEY_AUTO_RECONNECT, true) ?: true
-    }
+    fun isAutoReconnectEnabled(): Boolean = prefs?.getBoolean(KEY_AUTO_RECONNECT, true) ?: true
 
     fun setAutoReconnectEnabled(enabled: Boolean) {
         prefs?.edit()?.putBoolean(KEY_AUTO_RECONNECT, enabled)?.apply()
@@ -282,13 +235,10 @@ object BluetoothController {
         prefs?.edit()?.putString(KEY_LAST_DEVICE, address)?.apply()
     }
 
-    fun getLastConnectedDeviceAddress(): String? {
-        return prefs?.getString(KEY_LAST_DEVICE, null)
-    }
+    fun getLastConnectedDeviceAddress(): String? = prefs?.getString(KEY_LAST_DEVICE, null)
 
     fun reconnectLastDevice(): Boolean {
         val lastAddress = getLastConnectedDeviceAddress() ?: return false
-        Log.d(TAG, "Tự động kết nối lại thiết bị gần nhất: $lastAddress")
         return connectDevice(lastAddress)
     }
 }
