@@ -91,6 +91,9 @@ object BluetoothController {
         }
         context?.registerReceiver(btStateReceiver, filter)
 
+        // Set FXSystemMode=bluetooth ngay khi khởi động để EchoService không can thiệp
+        setSystemMode("bluetooth")
+
         if (bluetoothAdapter?.isEnabled == true) {
             ensureConnectable()
             initA2dpProfile()
@@ -122,11 +125,27 @@ object BluetoothController {
 
     fun isBluetoothEnabled(): Boolean = bluetoothAdapter?.isEnabled == true
 
+    /**
+     * Đặt FXSystemMode để EchoService (app gốc Phicomm) không tự ngắt kết nối Bluetooth.
+     * mode="bluetooth": EchoService cho phép kết nối BT.
+     * mode="normal": EchoService nghĩ loa đang ở chế độ Wifi/AI, sẽ ngắt kết nối BT.
+     */
+    private fun setSystemMode(mode: String) {
+        try {
+            Runtime.getRuntime().exec(arrayOf("settings", "put", "system", "FXSystemMode", mode))
+            Log.d(TAG, "Đã set FXSystemMode=$mode")
+        } catch (e: Exception) {
+            Log.e(TAG, "Lỗi set FXSystemMode: ${e.message}")
+        }
+    }
+
     fun toggleBluetooth(): Boolean {
         val adapter = bluetoothAdapter ?: return false
         return if (adapter.isEnabled) {
+            setSystemMode("normal")
             adapter.disable()
         } else {
+            setSystemMode("bluetooth")
             adapter.enable()
         }
     }
@@ -134,6 +153,7 @@ object BluetoothController {
     fun enableBluetooth(): Boolean {
         val adapter = bluetoothAdapter ?: return false
         if (!adapter.isEnabled) {
+            setSystemMode("bluetooth")
             return adapter.enable()
         }
         return true
