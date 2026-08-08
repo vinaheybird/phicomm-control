@@ -25,7 +25,8 @@ object BluetoothController {
 
     private val btStateReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
-            if (intent?.action == BluetoothAdapter.ACTION_STATE_CHANGED) {
+            val action = intent?.action
+            if (action == BluetoothAdapter.ACTION_STATE_CHANGED) {
                 val state = intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.ERROR)
                 if (state == BluetoothAdapter.STATE_ON) {
                     Log.d(TAG, "Bluetooth vừa được bật, khởi tạo lại A2DP Profile...")
@@ -33,6 +34,29 @@ object BluetoothController {
                 } else if (state == BluetoothAdapter.STATE_OFF) {
                     Log.d(TAG, "Bluetooth đã tắt, xóa A2DP Profile.")
                     a2dpProfile = null
+                }
+            } else if (action == BluetoothDevice.ACTION_PAIRING_REQUEST) {
+                val device = intent.getParcelableExtra<BluetoothDevice>(BluetoothDevice.EXTRA_DEVICE)
+                val type = intent.getIntExtra(BluetoothDevice.EXTRA_PAIRING_VARIANT, BluetoothDevice.ERROR)
+                
+                try {
+                    Log.d(TAG, "Nhận yêu cầu ghép đôi từ ${device?.name} (Kiểu: $type). Đang tự động chấp nhận...")
+                    
+                    // Gọi hàm ẩn setPairingConfirmation(true) qua reflection
+                    val confirmMethod = device?.javaClass?.getMethod("setPairingConfirmation", Boolean::class.javaPrimitiveType)
+                    confirmMethod?.invoke(device, true)
+
+                    // Nếu là mã PIN mặc định 0000 hoặc 1234
+                    if (type == 0 /* PAIRING_VARIANT_PIN */) {
+                        val pinMethod = device?.javaClass?.getMethod("setPin", ByteArray::class.java)
+                        pinMethod?.invoke(device, "0000".toByteArray())
+                    }
+
+                    // Chặn hệ thống hiện popup (nếu có)
+                    abortBroadcast()
+                    Log.d(TAG, "Đã tự động chấp nhận ghép đôi với ${device?.name}")
+                } catch (e: Exception) {
+                    Log.e(TAG, "Lỗi tự động chấp nhận ghép đôi: ${e.message}", e)
                 }
             }
         }
@@ -42,7 +66,11 @@ object BluetoothController {
         context = ctx.applicationContext
         prefs = context?.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
 
-        val filter = IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED)
+        val filter = IntentFilter().apply {
+            addAction(BluetoothAdapter.ACTION_STATE_CHANGED)
+            addAction(BluetoothDevice.ACTION_PAIRING_REQUEST)
+            priority = IntentFilter.SYSTEM_HIGH_PRIORITY - 1 // Đặt độ ưu tiên cao để chặn popup
+        }
         context?.registerReceiver(btStateReceiver, filter)
 
         if (bluetoothAdapter?.isEnabled == true) {
