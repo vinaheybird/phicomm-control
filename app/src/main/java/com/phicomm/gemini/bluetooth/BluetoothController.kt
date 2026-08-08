@@ -40,6 +40,16 @@ object BluetoothController {
                         Log.d(TAG, "Bluetooth đã tắt.")
                     }
                 }
+                BluetoothAdapter.ACTION_SCAN_MODE_CHANGED -> {
+                    val mode = intent.getIntExtra(BluetoothAdapter.EXTRA_SCAN_MODE, -1)
+                    val prevMode = intent.getIntExtra(BluetoothAdapter.EXTRA_PREVIOUS_SCAN_MODE, -1)
+                    Log.d(TAG, "Scan mode thay đổi: $prevMode → $mode")
+                    // FXSystemModeImpl reset về SCAN_MODE_NONE (20) → ta set lại CONNECTABLE ngay
+                    if (mode == BluetoothAdapter.SCAN_MODE_NONE && bluetoothAdapter?.isEnabled == true) {
+                        Log.d(TAG, "Scan mode bị reset về NONE. Đang khôi phục CONNECTABLE...")
+                        ensureConnectable()
+                    }
+                }
                 BluetoothDevice.ACTION_ACL_CONNECTED -> {
                     val device = intent.getParcelableExtra<BluetoothDevice>(BluetoothDevice.EXTRA_DEVICE)
                     connectedDeviceAddress = device?.address
@@ -97,6 +107,7 @@ object BluetoothController {
 
         val filter = IntentFilter().apply {
             addAction(BluetoothAdapter.ACTION_STATE_CHANGED)
+            addAction(BluetoothAdapter.ACTION_SCAN_MODE_CHANGED)
             addAction(BluetoothDevice.ACTION_ACL_CONNECTED)
             addAction(BluetoothDevice.ACTION_ACL_DISCONNECTED)
             addAction(BluetoothDevice.ACTION_PAIRING_REQUEST)
