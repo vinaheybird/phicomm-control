@@ -151,14 +151,19 @@ object BluetoothController {
         val adapter = bluetoothAdapter ?: return emptyList()
         if (!adapter.isEnabled) return emptyList()
 
-        val paired = adapter.bondedDevices ?: return emptyList()
+        val pairedSet = adapter.bondedDevices?.toMutableSet() ?: mutableSetOf()
         val connectedDevice = getConnectedDevice()
 
-        return paired.map { device ->
+        // Phải đảm bảo thiết bị đang kết nối cũng hiển thị trong danh sách
+        if (connectedDevice != null && !pairedSet.contains(connectedDevice)) {
+            pairedSet.add(connectedDevice)
+        }
+
+        return pairedSet.map { device ->
             BluetoothDeviceInfo(
                 name = device.name ?: "Thiết bị không tên",
                 address = device.address,
-                isPaired = true,
+                isPaired = adapter.bondedDevices?.contains(device) == true,
                 isConnected = (device.address == connectedDevice?.address)
             )
         }
