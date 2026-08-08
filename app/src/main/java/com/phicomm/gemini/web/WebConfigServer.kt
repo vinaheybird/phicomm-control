@@ -2,14 +2,17 @@ package com.phicomm.gemini.web
 
 import android.content.Context
 import android.media.AudioManager
+import android.net.wifi.WifiManager
 import android.util.Log
 import com.google.gson.Gson
 import com.phicomm.gemini.audio.PromptMuteController
 import com.phicomm.gemini.bluetooth.BluetoothController
 import com.phicomm.gemini.hardware.LedController
-import com.phicomm.gemini.wifi.WifiSetupHelper
 import fi.iki.elonen.NanoHTTPD
 import java.io.IOException
+import java.io.OutputStreamWriter
+import java.net.HttpURLConnection
+import java.net.URL
 
 class WebConfigServer(
     private val context: Context,
@@ -41,8 +44,11 @@ class WebConfigServer(
     }
 
     private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+    private val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
     private val gson = Gson()
-    private val wifiSetupHelper = WifiSetupHelper(context)
+
+    // Port firmware gốc Phicomm R1 dùng để nhận config WiFi
+    private val PHICOMM_WIFI_API = "http://localhost:8989/api/configwifi"
 
     override fun serve(session: IHTTPSession): Response {
         val uri = session.uri
@@ -62,7 +68,7 @@ class WebConfigServer(
 
         // Trang chính: nếu loa chưa kết nối WiFi nhà → tự redirect sang /setup-wifi
         if (uri == "/" || uri == "") {
-            if (!wifiSetupHelper.isConnectedToHomeWifi()) {
+            if (!isConnectedToHomeWifi()) {
                 val resp = newFixedLengthResponse(Response.Status.REDIRECT, "text/plain", "")
                 resp.addHeader("Location", "/setup-wifi")
                 return resp
@@ -87,27 +93,27 @@ class WebConfigServer(
                 "/api/wifi/connect" -> {
                     val ssid = session.parameters["ssid"]?.get(0) ?: ""
                     val password = session.parameters["password"]?.get(0) ?: ""
-                    val passwordType = session.parameters["password_type"]?.get(0)
+                    val secureType = session.parameters["password_type"]?.get(0)
                         ?: session.parameters["passwordType"]?.get(0)
+                        ?: if (password.isEmpty()) "OPEN" else "WPA"
                     if (ssid.isBlank()) {
                         responseMap["success"] = false
                         responseMap["message"] = "Tên WiFi (SSID) không được để trống"
                     } else {
-                        // Gọi connectToWifi trực tiếp — hàm này tự spawn background thread
-                        // và tự delay 3s trước khi ngắt SoftAP, đủ thời gian cho HTTP response về điện thoại
-                        val (ok, msg) = wifiSetupHelper.connectToWifi(ssid, password, passwordType)
+                        // Forward sang firmware API port 8989 — đây là cách Phicomm thiết kế sẵn
+                        val (ok, msg) = callPhicommWifiApi(ssid, password, secureType)
                         responseMap["success"] = ok
                         responseMap["message"] = msg
                     }
                 }
 
                 "/api/wifi/status" -> {
-                    val ip = wifiSetupHelper.getCurrentIp()
-                    val ssid = wifiSetupHelper.getCurrentSsid()
+                    val ip = getCurrentIp()
+                    val ssid = getCurrentSsid()
                     responseMap["success"] = true
                     responseMap["ip"] = ip
                     responseMap["ssid"] = ssid
-                    responseMap["isHomeWifi"] = wifiSetupHelper.isConnectedToHomeWifi()
+                    responseMap["isHomeWifi"] = isConnectedToHomeWifi()
                 }
 
                 // ── Bluetooth ───────────────────────────────────────────────
@@ -1041,4 +1047,61 @@ class WebConfigServer(
             Log.e(TAG, "Không thể chạy WebConfigServer: ${e.message}", e)
         }
     }
+
+    /**
+     * Gọi API firmware gốc Phicomm R1 tại port 8989 để cấu hình WiFi.
+     * Đây là cách chính xác Phicomm thiết kế sẵn — không cần WifiManager.addNetwork().
+     *
+     * curl -X POST --data '{"ssid":"...","secure":"WPA","password":"..."}' http://192.168.43.1:8989/api/configwifi
+     */
+    private fun callPhicommWifiApi(ssid: String, password: String, secureType: String): Pair<Boolean, String> {
+        return try {
+            val json = """{"ssid":"$ssid","secure":"$secureType","password":"$password"}"""
+            Log.d(TAG, "Gọi Phicomm WiFi API: $PHICOMM_WIFI_API với body=$json")
+
+            val url = URL(PHICOMM_WIFI_API)
+            val conn = url.openConnection() as HttpURLConnection
+            conn.requestMethod = "POST"
+            conn.setRequestProperty("Content-Type", "application/json")
+            conn.connectTimeout = 5000
+            conn.readTimeout = 5000
+            conn.doOutput = true
+
+            OutputStreamWriter(conn.outputStream).use { it.write(json) }
+
+            val responseCode = conn.responseCode
+            val responseBody = try { conn.inputStream.bufferedReader().readText() } catch (_: Exception) { "" }
+            Log.d(TAG, "Phicomm API response: $responseCode — $responseBody")
+
+            if (responseCode in 200..299) {
+                Pair(true, "Lệnh kết nối đã gửi tới loa! Loa sẽ tự kết nối vào '$ssid' và tắt SoftAP sau vài giây.")
+            } else {
+                Pair(false, "Loa từ chối lệnh (HTTP $responseCode). Kiểm tra lại SSID và mật khẩu.")
+            }
+        } catch (e: java.net.ConnectException) {
+            Log.e(TAG, "Không kết nối được port 8989: ${e.message}")
+            Pair(false, "Không kết nối được tới firmware loa (port 8989). Đảm bảo app com.phicomm.speaker.netctl đang chạy.")
+        } catch (e: Throwable) {
+            Log.e(TAG, "Lỗi gọi Phicomm WiFi API: ${e.message}", e)
+            Pair(false, "Lỗi: ${e.message}")
+        }
+    }
+
+    private fun getCurrentSsid(): String = try {
+        wifiManager.connectionInfo.ssid?.removeSurrounding("\"") ?: ""
+    } catch (_: Exception) { "" }
+
+    private fun getCurrentIp(): String = try {
+        val ipInt = wifiManager.connectionInfo.ipAddress
+        if (ipInt != 0) String.format("%d.%d.%d.%d",
+            ipInt and 0xff, ipInt shr 8 and 0xff,
+            ipInt shr 16 and 0xff, ipInt shr 24 and 0xff)
+        else ""
+    } catch (_: Exception) { "" }
+
+    private fun isConnectedToHomeWifi(): Boolean {
+        val ip = getCurrentIp()
+        return ip.isNotEmpty() && !ip.startsWith("192.168.43.")
+    }
 }
+

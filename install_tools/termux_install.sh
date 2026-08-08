@@ -91,9 +91,10 @@ adb -s 192.168.43.1:5555 shell "pm hide com.phicomm.speaker.player"
 adb -s 192.168.43.1:5555 shell "pm hide com.phicomm.speaker.device"
 adb -s 192.168.43.1:5555 shell "pm hide com.phicomm.speaker.airskill"
 adb -s 192.168.43.1:5555 shell "pm hide com.phicomm.speaker.otaservice"
-adb -s 192.168.43.1:5555 shell "pm hide com.phicomm.speaker.setup"
 adb -s 192.168.43.1:5555 shell "pm hide com.phicomm.speaker.voice"
-adb -s 192.168.43.1:5555 shell "pm hide com.phicomm.speaker.netctl"
+# QUAN TRONG: KHONG hide com.phicomm.speaker.setup va com.phicomm.speaker.netctl
+# vi day la service host port 8989 /api/configwifi de ket noi WiFi
+echo "[OK] Da vo hieu hoa app rac (giu lai netctl de ket noi WiFi)"
 
 echo ""
 echo "[*] Dang bat Wi-Fi mode & khoi chay Web Server 8080..."
