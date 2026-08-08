@@ -1,12 +1,8 @@
 package com.phicomm.gemini
 
 import android.app.Notification
-import android.app.NotificationChannel
-import android.app.NotificationManager
 import android.app.Service
-import android.content.Context
 import android.content.Intent
-import android.os.Build
 import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
@@ -79,27 +75,10 @@ class PhicommGeminiService : Service() {
 
     private fun startForegroundNotification() {
         try {
-            val manager = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                val channel = NotificationChannel(
-                    CHANNEL_ID,
-                    "Dịch vụ Loa Phicomm Bluetooth Controller",
-                    NotificationManager.IMPORTANCE_LOW
-                )
-                manager.createNotificationChannel(channel)
-            }
-
             @Suppress("DEPRECATION")
-            val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                NotificationCompat.Builder(this, CHANNEL_ID)
-            } else {
-                NotificationCompat.Builder(this)
-            }
-
-            val notification: Notification = builder
-                .setContentTitle("Loa Phicomm Bluetooth Controller")
-                .setContentText("Trang quản lý web đang hoạt động tại http://192.168.43.1:8080")
+            val notification: Notification = NotificationCompat.Builder(this)
+                .setContentTitle("Phicomm Gemini")
+                .setContentText("Web server đang chạy tại cổng 8080")
                 .setSmallIcon(android.R.drawable.ic_dialog_info)
                 .setOngoing(true)
                 .setPriority(NotificationCompat.PRIORITY_MIN)
