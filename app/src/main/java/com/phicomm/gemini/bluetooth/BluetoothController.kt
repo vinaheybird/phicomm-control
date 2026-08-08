@@ -8,6 +8,10 @@ import android.content.SharedPreferences
 import android.util.Log
 import java.lang.reflect.Method
 
+import android.content.BroadcastReceiver
+import android.content.Intent
+import android.content.IntentFilter
+
 object BluetoothController {
     private const val TAG = "BluetoothController"
     private const val PREF_NAME = "phicomm_bt_prefs"
@@ -19,10 +23,34 @@ object BluetoothController {
     private var context: Context? = null
     private var prefs: SharedPreferences? = null
 
+    private val btStateReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == BluetoothAdapter.ACTION_STATE_CHANGED) {
+                val state = intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.ERROR)
+                if (state == BluetoothAdapter.STATE_ON) {
+                    Log.d(TAG, "Bluetooth vừa được bật, khởi tạo lại A2DP Profile...")
+                    initA2dpProfile()
+                } else if (state == BluetoothAdapter.STATE_OFF) {
+                    Log.d(TAG, "Bluetooth đã tắt, xóa A2DP Profile.")
+                    a2dpProfile = null
+                }
+            }
+        }
+    }
+
     fun init(ctx: Context) {
         context = ctx.applicationContext
         prefs = context?.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
 
+        val filter = IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED)
+        context?.registerReceiver(btStateReceiver, filter)
+
+        if (bluetoothAdapter?.isEnabled == true) {
+            initA2dpProfile()
+        }
+    }
+
+    private fun initA2dpProfile() {
         bluetoothAdapter?.getProfileProxy(context, object : BluetoothProfile.ServiceListener {
             override fun onServiceConnected(profile: Int, proxy: BluetoothProfile?) {
                 if (profile == BluetoothProfile.A2DP) {
@@ -108,6 +136,12 @@ object BluetoothController {
 
         saveLastDevice(address)
 
+        // Phải ghép đôi trước khi kết nối A2DP
+        if (device.bondState == BluetoothDevice.BOND_NONE) {
+            Log.d(TAG, "Thiết bị chưa ghép đôi, bắt đầu ghép đôi...")
+            return device.createBond()
+        }
+
         val a2dp = a2dpProfile
         if (a2dp != null) {
             try {
@@ -119,13 +153,11 @@ object BluetoothController {
             } catch (e: Exception) {
                 Log.e(TAG, "Không thể gọi hàm connect A2DP qua reflection: ${e.message}", e)
             }
+        } else {
+            Log.e(TAG, "a2dpProfile đang null, không thể kết nối ngay lúc này!")
         }
 
-        // Fallback: Thử ghép đôi nếu chưa paired
-        if (device.bondState == BluetoothDevice.BOND_NONE) {
-            device.createBond()
-        }
-        return true
+        return false
     }
 
     fun disconnectCurrentDevice(): Boolean {
