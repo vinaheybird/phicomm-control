@@ -48,7 +48,9 @@ Write-Host $installOutput
 if ($installOutput -match "Success") {
     Write-Host "`n✅ Cài đặt thành công!" -ForegroundColor Green
     
-    # Tự động kích hoạt app
+    Write-Host "Đang đóng băng app gốc của loa để tránh xung đột Bluetooth..." -ForegroundColor Yellow
+    adb -s $DeviceID shell pm disable com.phicomm.speaker.player
+
     Write-Host "Đang khởi động lại dịch vụ trên loa..." -ForegroundColor Yellow
     adb -s $DeviceID shell am force-stop com.phicomm.gemini
     adb -s $DeviceID shell am startservice com.phicomm.gemini/.PhicommGeminiService
