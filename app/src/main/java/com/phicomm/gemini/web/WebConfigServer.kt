@@ -9,7 +9,6 @@ import com.phicomm.gemini.audio.PromptMuteController
 import com.phicomm.gemini.bluetooth.BluetoothController
 import com.phicomm.gemini.hardware.LedController
 import fi.iki.elonen.NanoHTTPD
-import java.io.IOException
 import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
@@ -80,7 +79,6 @@ class WebConfigServer(
     }
 
     private fun handleApiRequest(session: IHTTPSession, uri: String, method: Method): Response {
-        val params = session.parameters
         val responseMap = mutableMapOf<String, Any?>()
 
         try {
@@ -100,7 +98,6 @@ class WebConfigServer(
                         responseMap["success"] = false
                         responseMap["message"] = "Tên WiFi (SSID) không được để trống"
                     } else {
-                        // Forward sang firmware API port 8989 — đây là cách Phicomm thiết kế sẵn
                         val (ok, msg) = callPhicommWifiApi(ssid, password, secureType)
                         responseMap["success"] = ok
                         responseMap["message"] = msg
