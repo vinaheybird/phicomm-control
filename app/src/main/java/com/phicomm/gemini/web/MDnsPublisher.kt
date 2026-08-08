@@ -17,6 +17,9 @@ class MDnsPublisher(private val context: Context) {
 
     fun registerService(port: Int) {
         try {
+            // Hủy đăng ký cũ nếu có trước khi đăng ký mới
+            unregisterService()
+
             nsdManager = context.getSystemService(Context.NSD_SERVICE) as? NsdManager
             if (nsdManager == null) return
 
@@ -27,8 +30,9 @@ class MDnsPublisher(private val context: Context) {
             }
 
             registrationListener = object : NsdManager.RegistrationListener {
-                override fun onServiceRegistered(serviceInfo: NsdServiceInfo) {
-                    Log.d(TAG, "✅ mDNS đã phát tên miền local: http://phicomm.local:$port")
+                override fun onServiceRegistered(registeredInfo: NsdServiceInfo) {
+                    // registeredInfo.serviceName có thể là "phicomm (1)" nếu "phicomm" đã bị trùng
+                    Log.d(TAG, "✅ mDNS đã phát tên miền local: http://${registeredInfo.serviceName}.local:$port")
                 }
 
                 override fun onRegistrationFailed(serviceInfo: NsdServiceInfo, errorCode: Int) {
@@ -56,6 +60,9 @@ class MDnsPublisher(private val context: Context) {
                 nsdManager?.unregisterService(registrationListener)
                 registrationListener = null
             }
+        } catch (e: IllegalArgumentException) {
+            // Đã được unregister hoặc chưa đăng ký thành công
+            Log.d(TAG, "mDNS listener chưa được đăng ký hoặc đã hủy: ${e.message}")
         } catch (e: Throwable) {
             Log.e(TAG, "Lỗi hủy mDNS: ${e.message}")
         }
