@@ -72,11 +72,21 @@ object LedController {
 
     private fun runLightsTest(code: Int) {
         try {
-            Log.d(TAG, "Executing: lights_test show $code")
-            val process = Runtime.getRuntime().exec(arrayOf("lights_test", "show", code.toString()))
+            Log.d(TAG, "Executing via ADB: lights_test show $code")
+            // Đảm bảo kết nối ADB nội bộ
+            Runtime.getRuntime().exec(arrayOf("/system/bin/adb", "connect", "127.0.0.1:5555")).waitFor()
+            
+            // Gọi lệnh thông qua adb shell để có quyền 'shell', lách luật SELinux untrusted_app
+            val process = Runtime.getRuntime().exec(arrayOf("/system/bin/adb", "-s", "127.0.0.1:5555", "shell", "lights_test", "show", code.toString()))
+            val stdout = process.inputStream.bufferedReader().readText()
+            val stderr = process.errorStream.bufferedReader().readText()
             process.waitFor()
+            Log.d(TAG, "adb stdout: $stdout")
+            if (stderr.isNotEmpty()) {
+                Log.e(TAG, "adb stderr: $stderr")
+            }
         } catch (e: Exception) {
-            Log.e(TAG, "Lỗi khi gọi lights_test: ${e.message}", e)
+            Log.e(TAG, "Lỗi khi gọi lights_test qua ADB: ${e.message}", e)
         }
     }
 }
