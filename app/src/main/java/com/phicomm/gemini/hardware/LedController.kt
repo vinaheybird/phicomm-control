@@ -73,46 +73,18 @@ object LedController {
     }
 
     private fun runLightsTest(code: Int) {
-        try {
-            appContext?.let { context ->
-                val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
-                
-                // Map lights_test code to ARGB
-                val color = when (code) {
-                    502 -> android.graphics.Color.BLUE
-                    500 -> android.graphics.Color.RED
-                    501 -> android.graphics.Color.GREEN
-                    514 -> android.graphics.Color.CYAN
-                    504, 505 -> android.graphics.Color.TRANSPARENT
-                    else -> android.graphics.Color.BLUE
-                }
-                
-                if (color == android.graphics.Color.TRANSPARENT) {
-                    notificationManager.cancel(1001)
-                    Log.d(TAG, "Canceled LED Notification")
-                } else {
-                    val builder = android.app.Notification.Builder(context)
-                        .setSmallIcon(android.R.drawable.ic_dialog_info) // Must have icon
-                        .setContentTitle("LED")
-                        .setContentText("LED Color")
-                        .setPriority(android.app.Notification.PRIORITY_MAX)
-                    
-                    if (code == 514) { // Pulse
-                        builder.setLights(color, 1000, 1000)
-                    } else { // Solid
-                        builder.setLights(color, 1, 0)
-                    }
-                    
-                    val notification = builder.build()
-                    // Add FLAG_SHOW_LIGHTS explicitly
-                    notification.flags = notification.flags or android.app.Notification.FLAG_SHOW_LIGHTS
-                    
-                    notificationManager.notify(1001, notification)
-                    Log.d(TAG, "Sent LED Notification with color: $color (Code: $code)")
-                }
+        Thread {
+            try {
+                // Kết nối tới LedDaemon chạy ở port 8081 với quyền shell
+                val socket = java.net.Socket("127.0.0.1", 8081)
+                val out = socket.getOutputStream()
+                out.write("$code\n".toByteArray())
+                out.flush()
+                socket.close()
+                Log.d(TAG, "Đã gửi lệnh $code tới LedDaemon")
+            } catch (e: Exception) {
+                Log.e(TAG, "Không thể kết nối LedDaemon (port 8081). Vui lòng đảm bảo daemon đang chạy: ${e.message}")
             }
-        } catch (e: Exception) {
-            Log.e(TAG, "Lỗi khi gọi Notification LED: ${e.message}", e)
-        }
+        }.start()
     }
 }
