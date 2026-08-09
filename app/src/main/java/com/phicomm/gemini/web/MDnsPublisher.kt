@@ -27,8 +27,21 @@ class MDnsPublisher(private val context: Context) {
                 multicastLock?.setReferenceCounted(true)
                 multicastLock?.acquire()
 
-                // Lấy IP WiFi hiện tại của loa
-                val ipInt = wifiManager?.connectionInfo?.ipAddress ?: 0
+                // Lấy IP WiFi hiện tại của loa (Chờ nếu chưa có IP)
+                var ipInt = wifiManager?.connectionInfo?.ipAddress ?: 0
+                var retries = 0
+                while (ipInt == 0 && retries < 15) { // Thử lại tối đa 30 giây
+                    Log.d(TAG, "Chờ mạng WiFi để cấp phát mDNS (lần thử ${retries + 1})...")
+                    Thread.sleep(2000)
+                    ipInt = wifiManager?.connectionInfo?.ipAddress ?: 0
+                    retries++
+                }
+                
+                if (ipInt == 0) {
+                    Log.e(TAG, "Không lấy được IP WiFi sau khi boot. Hủy mDNS.")
+                    return@Thread
+                }
+
                 val ipBytes = byteArrayOf(
                     (ipInt and 0xff).toByte(),
                     (ipInt shr 8 and 0xff).toByte(),

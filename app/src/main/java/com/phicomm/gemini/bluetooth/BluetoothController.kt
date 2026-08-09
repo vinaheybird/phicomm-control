@@ -21,6 +21,25 @@ object BluetoothController {
     private var bluetoothAdapter: BluetoothAdapter? = BluetoothAdapter.getDefaultAdapter()
     private var context: Context? = null
     private var prefs: SharedPreferences? = null
+    private var a2dpSinkProxy: BluetoothProfile? = null
+
+    private const val A2DP_SINK_PROFILE = 10
+
+    private val profileListener = object : BluetoothProfile.ServiceListener {
+        override fun onServiceConnected(profile: Int, proxy: BluetoothProfile?) {
+            if (profile == A2DP_SINK_PROFILE) {
+                Log.d(TAG, "=> ĐÃ KẾT NỐI A2DP_SINK (Profile ID 10): ${proxy?.javaClass?.name}")
+                a2dpSinkProxy = proxy
+            }
+        }
+
+        override fun onServiceDisconnected(profile: Int) {
+            if (profile == A2DP_SINK_PROFILE) {
+                Log.d(TAG, "A2DP Sink Profile (ID 10) disconnected.")
+                a2dpSinkProxy = null
+            }
+        }
+    }
 
     // Theo dõi thiết bị đang kết nối qua BroadcastReceiver thay vì profile proxy
     private var connectedDeviceAddress: String? = null
@@ -34,9 +53,22 @@ object BluetoothController {
                     if (state == BluetoothAdapter.STATE_ON) {
                         Log.d(TAG, "Bluetooth vừa bật, đảm bảo SCAN_MODE_CONNECTABLE...")
                         ensureConnectable()
+                        
+                        Log.d(TAG, "Re-binding A2DP Sink Profile 10...")
+                        bluetoothAdapter?.getProfileProxy(context, profileListener, A2DP_SINK_PROFILE)
                     } else if (state == BluetoothAdapter.STATE_OFF) {
                         connectedDeviceAddress = null
                         connectedDeviceName = null
+                        
+                        // FIX: Clear proxy reference and close proxy
+                        if (a2dpSinkProxy != null) {
+                            try {
+                                bluetoothAdapter?.closeProfileProxy(A2DP_SINK_PROFILE, a2dpSinkProxy)
+                            } catch (e: Exception) {}
+                            a2dpSinkProxy = null
+                            Log.d(TAG, "Đã dọn dẹp A2DP Sink Profile.")
+                        }
+                        
                         Log.d(TAG, "Bluetooth đã tắt.")
                     }
                 }
@@ -81,6 +113,20 @@ object BluetoothController {
                         Log.e(TAG, "Lỗi chấp nhận ghép đôi: ${e.message}", e)
                     }
                 }
+                "android.bluetooth.a2dp-sink.profile.action.CONNECTION_STATE_CHANGED" -> {
+                    val state = intent.getIntExtra(BluetoothProfile.EXTRA_STATE, BluetoothProfile.STATE_DISCONNECTED)
+                    val device = intent.getParcelableExtra<BluetoothDevice>(BluetoothDevice.EXTRA_DEVICE)
+                    Log.d(TAG, "A2DP Sink Connection State: $state for ${device?.name}")
+                    if (state == BluetoothProfile.STATE_CONNECTED) {
+                        connectedDeviceAddress = device?.address
+                        connectedDeviceName = device?.name
+                    } else if (state == BluetoothProfile.STATE_DISCONNECTED) {
+                        if (device?.address == connectedDeviceAddress) {
+                            connectedDeviceAddress = null
+                            connectedDeviceName = null
+                        }
+                    }
+                }
             }
         }
     }
@@ -105,15 +151,22 @@ object BluetoothController {
         context = ctx.applicationContext
         prefs = context?.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
 
+        // Phicomm EchoService interferes with A2DP connections. 
+        // Cannot disable programmatically because the device has no `su` binary for apps.
+        // It must be disabled via ADB from the host PC.
+
         val filter = IntentFilter().apply {
             addAction(BluetoothAdapter.ACTION_STATE_CHANGED)
             addAction(BluetoothAdapter.ACTION_SCAN_MODE_CHANGED)
             addAction(BluetoothDevice.ACTION_ACL_CONNECTED)
             addAction(BluetoothDevice.ACTION_ACL_DISCONNECTED)
             addAction(BluetoothDevice.ACTION_PAIRING_REQUEST)
+            addAction("android.bluetooth.a2dp-sink.profile.action.CONNECTION_STATE_CHANGED")
             priority = IntentFilter.SYSTEM_HIGH_PRIORITY - 1
         }
         context?.registerReceiver(btStateReceiver, filter)
+
+        bluetoothAdapter?.getProfileProxy(context, profileListener, A2DP_SINK_PROFILE)
 
         if (bluetoothAdapter?.isEnabled == true) {
             ensureConnectable()
@@ -189,15 +242,19 @@ object BluetoothController {
             return device.createBond()
         }
 
-        // Dùng BluetoothDevice.connect() qua reflection — không cần giữ profile proxy
+        // Gọi connect bằng A2DP_SINK
         try {
-            val connectMethod: Method = device.javaClass.getMethod("connect")
-            connectMethod.isAccessible = true
-            connectMethod.invoke(device)
-            Log.d(TAG, "Đã gọi device.connect() cho $address")
-            return true
+            if (a2dpSinkProxy != null) {
+                val connectMethod: Method = a2dpSinkProxy!!.javaClass.getMethod("connect", BluetoothDevice::class.java)
+                connectMethod.isAccessible = true
+                val connected = connectMethod.invoke(a2dpSinkProxy, device) as? Boolean ?: false
+                Log.d(TAG, "Đã gọi a2dpSinkProxy.connect() cho $address, kết quả: $connected")
+                return true
+            } else {
+                Log.e(TAG, "a2dpSinkProxy đang null, không thể kết nối A2DP!")
+            }
         } catch (e: Exception) {
-            Log.e(TAG, "Lỗi device.connect(): ${e.message}", e)
+            Log.e(TAG, "Lỗi gọi a2dpSinkProxy.connect(): ${e.message}")
         }
         return false
     }
@@ -205,15 +262,18 @@ object BluetoothController {
     fun disconnectCurrentDevice(): Boolean {
         val device = getConnectedDevice() ?: return true
         try {
-            val disconnectMethod: Method = device.javaClass.getMethod("disconnect")
-            disconnectMethod.isAccessible = true
-            disconnectMethod.invoke(device)
-            Log.d(TAG, "Đã gọi device.disconnect() cho ${device.address}")
-            return true
+            if (a2dpSinkProxy != null) {
+                val disconnectMethod: Method = a2dpSinkProxy!!.javaClass.getMethod("disconnect", BluetoothDevice::class.java)
+                disconnectMethod.isAccessible = true
+                val disconnected = disconnectMethod.invoke(a2dpSinkProxy, device) as? Boolean ?: false
+                Log.d(TAG, "Đã gọi a2dpSinkProxy.disconnect() cho ${device.address}, kết quả: $disconnected")
+            } else {
+                Log.w(TAG, "a2dpSinkProxy null khi gọi disconnect!")
+            }
         } catch (e: Exception) {
-            Log.e(TAG, "Lỗi device.disconnect(): ${e.message}", e)
+            Log.e(TAG, "Lỗi gọi a2dpSinkProxy.disconnect(): ${e.message}")
         }
-        return false
+        return true
     }
 
     fun startDiscovery(): Boolean {

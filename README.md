@@ -24,6 +24,7 @@ Dự án chuyển đổi loa **Phicomm R1 (Feixun R1)** thành **Loa Bluetooth c
 
 5. **Vô Hiệu Hóa App Rác Mặc Định (Phương Pháp Xiaozhi)**:
    - Cung cấp sẵn script ADB tự động tắt (`pm hide` / `pm disable`) toàn bộ các ứng dụng rác mặc định của Phicomm (`com.phicomm.speaker.*`), giúp loa khởi động nhanh, giải phóng RAM và CPU tải chỉ <2%.
+   - ⚠️ **LƯU Ý QUAN TRỌNG**: Bạn **BẮT BUỘC** phải khởi động lại (reboot) loa sau khi ẩn app rác. Nếu không khởi động lại, dịch vụ `EchoService` vẫn kẹt trong RAM và sẽ tự động ngắt kết nối Bluetooth của bạn!
 
 ---
 
