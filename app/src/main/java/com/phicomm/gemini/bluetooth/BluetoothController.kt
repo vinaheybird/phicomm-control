@@ -210,11 +210,23 @@ object BluetoothController {
 
     fun toggleBluetooth(): Boolean {
         val adapter = bluetoothAdapter ?: return false
-        return if (adapter.isEnabled) {
+        val targetState = !adapter.isEnabled
+        
+        if (adapter.isEnabled) {
             adapter.disable()
         } else {
             adapter.enable()
         }
+        
+        // Chờ tối đa 5 giây để phần cứng thực sự chuyển trạng thái
+        for (i in 1..50) {
+            if (adapter.isEnabled == targetState) {
+                break
+            }
+            Thread.sleep(100)
+        }
+        
+        return adapter.isEnabled
     }
 
     fun enableBluetooth(): Boolean {

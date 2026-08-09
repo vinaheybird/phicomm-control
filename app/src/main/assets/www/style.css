@@ -209,6 +209,7 @@ input[type="text"], input[type="password"] {
 }
 input:checked + .slider { background-color: var(--switch-on); }
 input:checked + .slider:before { transform: translateX(20px); }
+input:disabled + .slider { opacity: 0.5; cursor: not-allowed; }
 
 /* Range */
 .range-container {
