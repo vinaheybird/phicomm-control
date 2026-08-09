@@ -60,22 +60,40 @@ class WebConfigServer(
             return handleApiRequest(session, uri, method)
         }
 
-        // Trang setup WiFi (truy cập trực tiếp)
-        if (uri == "/setup-wifi") {
-            return serveWifiSetupHtml()
-        }
-
-        // Trang chính: nếu loa chưa kết nối WiFi nhà → tự redirect sang /setup-wifi
-        if (uri == "/" || uri == "") {
+        // Chuyển hướng trang chính nếu chưa có WiFi
+        if (uri == "/" || uri == "/index.html") {
             if (!isConnectedToHomeWifi()) {
                 val resp = newFixedLengthResponse(Response.Status.REDIRECT, "text/plain", "")
                 resp.addHeader("Location", "/setup-wifi")
                 return resp
             }
+            return serveAssetFile("www/index.html", "text/html; charset=utf-8")
         }
 
-        // Dashboard chính
-        return serveDashboardHtml()
+        if (uri == "/setup-wifi" || uri == "/wifi.html") {
+            return serveAssetFile("www/wifi.html", "text/html; charset=utf-8")
+        }
+        
+        if (uri == "/style.css") {
+            return serveAssetFile("www/style.css", "text/css; charset=utf-8")
+        }
+        
+        if (uri == "/app.js") {
+            return serveAssetFile("www/app.js", "application/javascript; charset=utf-8")
+        }
+
+        // Fallback
+        return serveAssetFile("www/index.html", "text/html; charset=utf-8")
+    }
+
+    private fun serveAssetFile(path: String, mimeType: String): Response {
+        return try {
+            val inputStream = context.assets.open(path)
+            newChunkedResponse(Response.Status.OK, mimeType, inputStream)
+        } catch (e: Exception) {
+            Log.e(TAG, "Không tìm thấy file tĩnh: $path")
+            newFixedLengthResponse(Response.Status.NOT_FOUND, "text/plain", "404 Not Found: $path")
+        }
     }
 
     private fun handleApiRequest(session: IHTTPSession, uri: String, method: Method): Response {
@@ -225,118 +243,8 @@ class WebConfigServer(
     }
 
     // ══════════════════════════════════════════════════════════════════
-    // TRANG SETUP WIFI
+    // QUẢN LÝ HTTP SERVER
     // ══════════════════════════════════════════════════════════════════
-    private fun serveWifiSetupHtml(): Response {
-        val html = """
-            <!DOCTYPE html>
-            <html>
-            <head><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Phicomm R1 WiFi</title></head>
-            <body style="font-family:sans-serif; max-width:400px; margin:auto; padding:20px;">
-                <h2>Kết Nối WiFi</h2>
-                <div id="status" style="color:blue; font-weight:bold; margin-bottom:15px;"></div>
-                <p>SSID: <input id="ssid" type="text" style="width:100%; padding:8px;"></p>
-                <p>Mật khẩu: <input id="pass" type="password" style="width:100%; padding:8px;"></p>
-                <button onclick="connect()" style="padding:12px; width:100%; margin-top:10px;">Kết Nối</button>
-                <p style="margin-top:20px;"><a href="/">Quay lại Dashboard</a></p>
-                
-                <script>
-                    fetch('/api/wifi/status').then(r=>r.json()).then(d=>{
-                        if(d.isHomeWifi) document.getElementById('status').innerText = 'Đang dùng IP: ' + d.ip;
-                    });
-                    
-                    async function connect() {
-                        const ssid = document.getElementById('ssid').value;
-                        const pass = document.getElementById('pass').value;
-                        if(!ssid) return alert("Nhập SSID!");
-                        
-                        document.getElementById('status').innerText = 'Đang gửi lệnh...';
-                        const res = await fetch('/api/wifi/connect?ssid=' + encodeURIComponent(ssid) + '&password=' + encodeURIComponent(pass), {method:'POST'});
-                        const data = await res.json();
-                        document.getElementById('status').innerText = data.success ? '✅ ' + data.message : '❌ ' + data.message;
-                    }
-                </script>
-            </body>
-            </html>
-        """.trimIndent()
-        return newFixedLengthResponse(Response.Status.OK, "text/html; charset=utf-8", html)
-    }
-
-    private fun serveDashboardHtml(): Response {
-        val S = '$'
-        val html = """
-            <!DOCTYPE html>
-            <html>
-            <head><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Phicomm R1</title></head>
-            <body style="font-family:sans-serif; max-width:500px; margin:auto; padding:20px;">
-                <h2>🔊 Phicomm R1 Controller</h2>
-                
-                <fieldset>
-                    <legend>Bluetooth</legend>
-                    <p>Trạng thái: <b id="btStatus">...</b></p>
-                    <button onclick="post('/api/bluetooth/toggle')">Bật/Tắt Bluetooth</button>
-                    <button onclick="post('/api/bluetooth/discover')">Bật Dò Tìm (5p)</button>
-                    <button onclick="post('/api/bluetooth/disconnect')">Ngắt Kết Nối</button>
-                    <p>Tự nối lại gần nhất: <input type="checkbox" id="btAuto" onchange="post('/api/bluetooth/auto-reconnect?enabled='+this.checked)"></p>
-                    <hr>
-                    <b>Thiết bị đã ghép đôi:</b>
-                    <div id="pairedList" style="margin-top:10px;"></div>
-                </fieldset>
-
-                <fieldset style="margin-top:20px;">
-                    <legend>Cấu Hình</legend>
-                    <p>Đèn LED: <input type="checkbox" id="ledToggle" onchange="post('/api/led/toggle')"></p>
-                    <p>Màu LED: 
-                        <select id="ledMode" onchange="post('/api/led/mode?mode='+this.value)">
-                            <option value="BLUE_SOLID">Xanh lam</option>
-                            <option value="CYAN_PULSE">Xanh lam nháy</option>
-                            <option value="ORANGE_SOLID">Cam</option>
-                            <option value="GREEN_SOLID">Xanh lá</option>
-                            <option value="OFF">Tắt</option>
-                        </select>
-                    </p>
-                    <p>Mute giọng TQ: <input type="checkbox" id="muteToggle" onchange="post('/api/prompt-mute/toggle')"></p>
-                    <p>Âm lượng (<span id="volLabel"></span>): <br><input type="range" id="volRange" min="0" max="100" style="width:100%;" onchange="post('/api/volume?level='+this.value)"></p>
-                </fieldset>
-
-                <p style="margin-top:20px;"><a href="/setup-wifi">📶 Cài Đặt WiFi Mới</a></p>
-
-                <script>
-                    async function post(url) {
-                        await fetch(url, {method:'POST'});
-                        refresh();
-                    }
-                    async function refresh() {
-                        try {
-                            const r = await fetch('/api/status');
-                            const d = await r.json();
-                            
-                            document.getElementById('btStatus').innerText = d.btEnabled ? 
-                                (d.connectedDevice ? '🟢 Đã nối: ' + d.connectedDevice.name : '🟡 Đang bật (Chưa kết nối)') : '🔴 Đã tắt';
-                            document.getElementById('btAuto').checked = d.autoReconnect;
-                            document.getElementById('ledToggle').checked = d.ledEnabled;
-                            document.getElementById('ledMode').value = d.ledMode;
-                            document.getElementById('muteToggle').checked = d.promptMute;
-                            document.getElementById('volRange').value = d.volume;
-                            document.getElementById('volLabel').innerText = d.volume + '%';
-                            
-                            document.getElementById('pairedList').innerHTML = (d.pairedDevices||[]).map(dev => 
-                                `<div style="margin-bottom:8px; border-bottom:1px solid #eee; padding-bottom:5px;">
-                                    <strong>${S}{dev.name}</strong><br>
-                                    <small>${S}{dev.address}</small> 
-                                    ${S}{dev.isConnected ? '<b style="color:green;">(Đang phát)</b>' : `<button onclick="post('/api/bluetooth/connect?address=${S}{dev.address}')">Kết Nối</button>`}
-                                </div>`
-                            ).join('') || 'Chưa có thiết bị nào.';
-                        } catch(e) {}
-                    }
-                    refresh();
-                    setInterval(refresh, 5000);
-                </script>
-            </body>
-            </html>
-        """.trimIndent()
-        return newFixedLengthResponse(Response.Status.OK, "text/html; charset=utf-8", html)
-    }
 
     fun startServer() {
         try {

@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Phicomm R1 Controller</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <div id="toast-container"></div>
+    
+    <div class="container">
+        <h2>🔊 Phicomm R1</h2>
+        
+        <!-- Bluetooth Section -->
+        <div class="card">
+            <div class="card-title">Bluetooth</div>
+            
+            <div class="row">
+                <span>Trạng thái: <b id="btStatus">Đang tải...</b></span>
+                <label class="switch">
+                    <input type="checkbox" id="btToggle" onchange="postApi('/api/bluetooth/toggle')">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            
+            <div class="row" style="margin-top: 20px;">
+                <button onclick="postApi('/api/bluetooth/discover', this)" style="flex: 1; margin-right: 10px;">
+                    <span class="loader"></span> Dò Tìm (5p)
+                </button>
+                <button onclick="postApi('/api/bluetooth/disconnect', this)" class="danger" style="flex: 1;">
+                    <span class="loader"></span> Ngắt Kết Nối
+                </button>
+            </div>
+            
+            <div class="row" style="margin-top: 15px;">
+                <span style="font-size: 14px;">Tự nối lại thiết bị cũ khi khởi động</span>
+                <label class="switch">
+                    <input type="checkbox" id="btAuto" onchange="postApi('/api/bluetooth/auto-reconnect?enabled='+this.checked)">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            
+            <div style="margin-top: 25px;">
+                <b style="font-size: 14px; color: var(--text-muted); text-transform: uppercase;">Thiết Bị Đã Ghép Đôi</b>
+                <div id="pairedList" style="margin-top: 10px;">
+                    <!-- Devices injected here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Cấu Hình Section -->
+        <div class="card">
+            <div class="card-title">Cấu Hình Chung</div>
+            
+            <div class="row">
+                <span>Âm lượng (<span id="volLabel">50%</span>)</span>
+            </div>
+            <div class="row">
+                <input type="range" id="volRange" min="0" max="100" onchange="postApi('/api/volume?level='+this.value)">
+            </div>
+            
+            <div class="row" style="margin-top: 20px;">
+                <span>Tắt tiếng TQ (Prompt Mute)</span>
+                <label class="switch">
+                    <input type="checkbox" id="muteToggle" onchange="postApi('/api/prompt-mute/toggle')">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            
+            <div class="row" style="margin-top: 15px;">
+                <span>Bật / Tắt Đèn LED</span>
+                <label class="switch">
+                    <input type="checkbox" id="ledToggle" onchange="postApi('/api/led/toggle')">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            
+            <div class="row" style="margin-top: 10px;">
+                <span style="font-size: 14px; width: 40%;">Màu LED</span>
+                <select id="ledMode" onchange="postApi('/api/led/mode?mode='+this.value)" style="width: 60%;">
+                    <option value="BLUE_SOLID">Xanh lam</option>
+                    <option value="CYAN_PULSE">Xanh lam nháy</option>
+                    <option value="ORANGE_SOLID">Cam</option>
+                    <option value="GREEN_SOLID">Xanh lá</option>
+                    <option value="OFF">Tắt hẳn</option>
+                </select>
+            </div>
+        </div>
+        
+        <!-- Link to WiFi -->
+        <div style="text-align: center; margin-bottom: 30px;">
+            <a href="/setup-wifi" style="color: var(--primary); text-decoration: none; font-weight: bold;">📶 Chuyển sang Cài Đặt WiFi</a>
+        </div>
+    </div>
+    
+    <script src="/app.js"></script>
+</body>
+</html>

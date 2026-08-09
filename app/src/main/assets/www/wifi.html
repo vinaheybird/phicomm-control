@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Cài Đặt WiFi - Phicomm R1</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <div id="toast-container"></div>
+    
+    <div class="container">
+        <h2>📶 Cài Đặt WiFi</h2>
+        
+        <div class="card">
+            <div id="wifiStatus" class="status-badge" style="text-align: center; margin-bottom: 20px;">
+                Đang kiểm tra kết nối...
+            </div>
+            
+            <div style="margin-bottom: 15px;">
+                <label style="font-weight: 500; font-size: 14px; margin-bottom: 5px; display: block;">Tên WiFi (SSID):</label>
+                <input type="text" id="ssid" placeholder="Nhập tên mạng WiFi nhà bạn...">
+            </div>
+            
+            <div style="margin-bottom: 20px;">
+                <label style="font-weight: 500; font-size: 14px; margin-bottom: 5px; display: block;">Mật khẩu:</label>
+                <input type="password" id="pass" placeholder="Nhập mật khẩu WiFi...">
+            </div>
+            
+            <button onclick="connectWifi(this)" style="width: 100%; padding: 12px; font-size: 16px;">
+                <span class="loader"></span> KẾT NỐI WIFI
+            </button>
+        </div>
+        
+        <div style="text-align: center; margin-top: 10px;">
+            <a href="/" style="color: var(--text-muted); text-decoration: none;">&larr; Quay lại Dashboard</a>
+        </div>
+    </div>
+    
+    <script src="/app.js"></script>
+    <script>
+        // Lấy status wifi hiện tại
+        fetch('/api/wifi/status').then(r => r.json()).then(d => {
+            const st = document.getElementById('wifiStatus');
+            if(d.isHomeWifi) {
+                st.innerText = '✅ Đang kết nối mạng LAN (' + d.ip + ')';
+                st.style.color = 'var(--success)';
+            } else {
+                st.innerText = '⚠️ Đang phát Hotspot (Chưa kết nối mạng)';
+                st.style.color = 'var(--danger)';
+            }
+        });
+        
+        async function connectWifi(btn) {
+            const ssid = document.getElementById('ssid').value;
+            const pass = document.getElementById('pass').value;
+            
+            if (!ssid) {
+                showToast("Vui lòng nhập tên WiFi!", true);
+                return;
+            }
+            
+            btn.classList.add('loading');
+            btn.disabled = true;
+            
+            try {
+                const url = '/api/wifi/connect?ssid=' + encodeURIComponent(ssid) + '&password=' + encodeURIComponent(pass);
+                const res = await fetch(url, { method: 'POST' });
+                const data = await res.json();
+                
+                showToast(data.message, !data.success);
+            } catch(e) {
+                showToast("Lỗi gửi lệnh kết nối!", true);
+            } finally {
+                btn.classList.remove('loading');
+                btn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>
