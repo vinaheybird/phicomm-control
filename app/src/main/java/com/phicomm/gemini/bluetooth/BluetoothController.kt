@@ -31,8 +31,22 @@ object BluetoothController {
                 Log.d(TAG, "=> ĐÃ KẾT NỐI A2DP_SINK (Profile ID 10): ${proxy?.javaClass?.name}")
                 a2dpSinkProxy = proxy
                 
-                // Tự động kết nối thiết bị cũ nếu có
-                if (isAutoReconnectEnabled()) {
+                var alreadyConnected = false
+                try {
+                    val connectedDevices = proxy?.connectedDevices
+                    if (!connectedDevices.isNullOrEmpty()) {
+                        val device = connectedDevices[0]
+                        connectedDeviceAddress = device.address
+                        connectedDeviceName = device.name
+                        alreadyConnected = true
+                        Log.d(TAG, "Phát hiện thiết bị đang kết nối sẵn: ${device.name}")
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Lỗi lấy danh sách thiết bị kết nối sẵn: ${e.message}")
+                }
+                
+                // Chỉ tự động kết nối thiết bị cũ nếu chưa có kết nối nào
+                if (!alreadyConnected && isAutoReconnectEnabled()) {
                     val lastDevice = getLastConnectedDeviceAddress()
                     if (lastDevice != null) {
                         Log.d(TAG, "Tự động kết nối lại thiết bị cũ: $lastDevice")
