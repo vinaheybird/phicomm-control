@@ -44,11 +44,15 @@ async function postApi(url, btnElement = null, loaderId = null) {
         console.error(err);
         return { success: false };
     } finally {
-        if (btnElement) {
-            btnElement.classList.remove('loading');
-            btnElement.disabled = false;
-        }
-        if (loader) loader.style.display = 'none';
+        setTimeout(() => {
+            if (btnElement) {
+                btnElement.classList.remove('loading');
+                btnElement.disabled = false;
+            }
+            if (loader) loader.style.display = 'none';
+            // Force final refresh to sync UI after delay
+            if (window.refreshStatus) window.refreshStatus();
+        }, 1500);
     }
 }
 
@@ -68,7 +72,7 @@ async function refreshStatus() {
         }
         
         const btToggleEl = document.getElementById('btToggle');
-        if (btToggleEl && btToggleEl.checked !== d.btEnabled) btToggleEl.checked = d.btEnabled;
+        if (btToggleEl && !btToggleEl.disabled && btToggleEl.checked !== d.btEnabled) btToggleEl.checked = d.btEnabled;
         
         // Hiện/Ẩn row ghép đôi
         const discoverRow = document.getElementById('discoverRow');
@@ -77,16 +81,16 @@ async function refreshStatus() {
         }
         
         const autoReEl = document.getElementById('btAuto');
-        if (autoReEl && autoReEl.checked !== d.autoReconnect) autoReEl.checked = d.autoReconnect;
+        if (autoReEl && !autoReEl.disabled && autoReEl.checked !== d.autoReconnect) autoReEl.checked = d.autoReconnect;
         
         const ledToggleEl = document.getElementById('ledToggle');
-        if (ledToggleEl && ledToggleEl.checked !== d.ledEnabled) ledToggleEl.checked = d.ledEnabled;
+        if (ledToggleEl && !ledToggleEl.disabled && ledToggleEl.checked !== d.ledEnabled) ledToggleEl.checked = d.ledEnabled;
         
         const ledModeEl = document.getElementById('ledMode');
-        if (ledModeEl && ledModeEl.value !== d.ledMode) ledModeEl.value = d.ledMode;
+        if (ledModeEl && !ledModeEl.disabled && ledModeEl.value !== d.ledMode) ledModeEl.value = d.ledMode;
         
         const muteToggleEl = document.getElementById('muteToggle');
-        if (muteToggleEl && muteToggleEl.checked !== d.promptMute) muteToggleEl.checked = d.promptMute;
+        if (muteToggleEl && !muteToggleEl.disabled && muteToggleEl.checked !== d.promptMute) muteToggleEl.checked = d.promptMute;
         
         const volRangeEl = document.getElementById('volRange');
         if (volRangeEl && document.activeElement !== volRangeEl) {
