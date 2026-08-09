@@ -23,9 +23,10 @@ async function postApi(url, btnElement = null, loaderId = null) {
     if (btnElement) {
         btnElement.classList.add('loading');
         btnElement.disabled = true;
+        btnElement.dataset.locked = "true";
     }
     const loader = loaderId ? document.getElementById(loaderId) : null;
-    if (loader) loader.style.display = 'block';
+    if (loader) loader.style.display = 'inline-block';
     
     try {
         const res = await fetch(url, { method: 'POST' });
@@ -44,15 +45,17 @@ async function postApi(url, btnElement = null, loaderId = null) {
         console.error(err);
         return { success: false };
     } finally {
+        // Phicomm R1 Android takes ~2-3 seconds to fully transition BT state
         setTimeout(() => {
             if (btnElement) {
                 btnElement.classList.remove('loading');
                 btnElement.disabled = false;
+                btnElement.dataset.locked = "false";
             }
             if (loader) loader.style.display = 'none';
             // Force final refresh to sync UI after delay
             if (window.refreshStatus) window.refreshStatus();
-        }, 1500);
+        }, 3000);
     }
 }
 
@@ -72,7 +75,9 @@ async function refreshStatus() {
         }
         
         const btToggleEl = document.getElementById('btToggle');
-        if (btToggleEl && !btToggleEl.disabled && btToggleEl.checked !== d.btEnabled) btToggleEl.checked = d.btEnabled;
+        if (btToggleEl && btToggleEl.dataset.locked !== "true" && btToggleEl.checked !== d.btEnabled) {
+            btToggleEl.checked = d.btEnabled;
+        }
         
         // Hiện/Ẩn row ghép đôi
         const discoverRow = document.getElementById('discoverRow');
