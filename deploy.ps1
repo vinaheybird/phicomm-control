@@ -18,7 +18,7 @@ if (-not $SkipBuild) {
     Write-Host "`n[1/3] Bỏ qua bước build APK (--SkipBuild)" -ForegroundColor Yellow
 }
 
-$ApkPath = "app\build\outputs\apk\debug\app-debug.apk"
+$ApkPath = "install_tools\PhicommGemini.apk"
 if (-not (Test-Path $ApkPath)) {
     Write-Host "Lỗi: Không tìm thấy file APK tại $ApkPath" -ForegroundColor Red
     exit 1
