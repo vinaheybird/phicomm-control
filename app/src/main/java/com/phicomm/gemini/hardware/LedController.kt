@@ -72,35 +72,47 @@ object LedController {
         runLightsTest(currentMode.lightsTestCode)
     }
 
-    private fun runAdbCommand(vararg args: String): String {
-        val pb = ProcessBuilder(*args)
-        appContext?.let { pb.environment()["HOME"] = it.filesDir.absolutePath }
-        val process = pb.start()
-        val stderr = process.errorStream.bufferedReader().readText()
-        process.waitFor()
-        if (stderr.isNotEmpty()) {
-            Log.e(TAG, "ADB stderr (${args.joinToString(" ")}): $stderr")
-        }
-        return stderr
-    }
-
     private fun runLightsTest(code: Int) {
-        Thread {
-            try {
-                Log.d(TAG, "Executing via ADB: lights_test show $code")
-                runAdbCommand("/system/bin/adb", "connect", "127.0.0.1:5555")
-                Thread.sleep(200) // Đợi thiết bị chuyển từ offline sang online
+        try {
+            appContext?.let { context ->
+                val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
                 
-                var stderr = runAdbCommand("/system/bin/adb", "-s", "127.0.0.1:5555", "shell", "lights_test", "show", code.toString())
-                
-                if (stderr.contains("offline")) {
-                    Log.w(TAG, "Thiết bị offline, thử lại sau 1s...")
-                    Thread.sleep(1000)
-                    runAdbCommand("/system/bin/adb", "-s", "127.0.0.1:5555", "shell", "lights_test", "show", code.toString())
+                // Map lights_test code to ARGB
+                val color = when (code) {
+                    502 -> android.graphics.Color.BLUE
+                    500 -> android.graphics.Color.RED
+                    501 -> android.graphics.Color.GREEN
+                    514 -> android.graphics.Color.CYAN
+                    504, 505 -> android.graphics.Color.TRANSPARENT
+                    else -> android.graphics.Color.BLUE
                 }
-            } catch (e: Exception) {
-                Log.e(TAG, "Lỗi khi gọi lights_test qua ADB: ${e.message}", e)
+                
+                if (color == android.graphics.Color.TRANSPARENT) {
+                    notificationManager.cancel(1001)
+                    Log.d(TAG, "Canceled LED Notification")
+                } else {
+                    val builder = android.app.Notification.Builder(context)
+                        .setSmallIcon(android.R.drawable.ic_dialog_info) // Must have icon
+                        .setContentTitle("LED")
+                        .setContentText("LED Color")
+                        .setPriority(android.app.Notification.PRIORITY_MAX)
+                    
+                    if (code == 514) { // Pulse
+                        builder.setLights(color, 1000, 1000)
+                    } else { // Solid
+                        builder.setLights(color, 1, 0)
+                    }
+                    
+                    val notification = builder.build()
+                    // Add FLAG_SHOW_LIGHTS explicitly
+                    notification.flags = notification.flags or android.app.Notification.FLAG_SHOW_LIGHTS
+                    
+                    notificationManager.notify(1001, notification)
+                    Log.d(TAG, "Sent LED Notification with color: $color (Code: $code)")
+                }
             }
-        }.start()
+        } catch (e: Exception) {
+            Log.e(TAG, "Lỗi khi gọi Notification LED: ${e.message}", e)
+        }
     }
 }
