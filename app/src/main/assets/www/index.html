@@ -25,7 +25,7 @@
                 <div class="item-action">
                     <span class="loader" id="btToggleLoader" style="margin-right: 8px;"></span>
                     <label class="switch">
-                        <input type="checkbox" id="btToggle" onchange="postApi('/api/bluetooth/toggle', null, 'btToggleLoader')">
+                        <input type="checkbox" id="btToggle" onchange="postApi('/api/bluetooth/toggle', this, 'btToggleLoader')">
                         <span class="slider"></span>
                     </label>
                 </div>
@@ -45,7 +45,7 @@
                 </div>
                 <div class="item-action">
                     <label class="switch">
-                        <input type="checkbox" id="btAuto" onchange="postApi('/api/bluetooth/auto-reconnect?enabled='+this.checked)">
+                        <input type="checkbox" id="btAuto" onchange="postApi('/api/bluetooth/auto-reconnect?enabled='+this.checked, this)">
                         <span class="slider"></span>
                     </label>
                 </div>
@@ -75,7 +75,7 @@
                 </div>
                 <div class="item-action">
                     <label class="switch">
-                        <input type="checkbox" id="muteToggle" onchange="postApi('/api/prompt-mute/toggle')">
+                        <input type="checkbox" id="muteToggle" onchange="postApi('/api/prompt-mute/toggle', this)">
                         <span class="slider"></span>
                     </label>
                 </div>
@@ -93,7 +93,7 @@
                 </div>
                 <div class="item-action">
                     <label class="switch">
-                        <input type="checkbox" id="ledToggle" onchange="postApi('/api/led/toggle')">
+                        <input type="checkbox" id="ledToggle" onchange="postApi('/api/led/toggle', this)">
                         <span class="slider"></span>
                     </label>
                 </div>
