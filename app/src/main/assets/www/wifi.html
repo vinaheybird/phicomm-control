@@ -3,51 +3,69 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Cài Đặt WiFi - Phicomm R1</title>
+    <title>Cài đặt Wi-Fi</title>
     <link rel="stylesheet" href="/style.css">
 </head>
 <body>
     <div id="toast-container"></div>
     
     <div class="container">
-        <h2>📶 Cài Đặt WiFi</h2>
-        
-        <div class="card">
-            <div id="wifiStatus" class="status-badge" style="text-align: center; margin-bottom: 20px;">
-                Đang kiểm tra kết nối...
-            </div>
-            
-            <div style="margin-bottom: 15px;">
-                <label style="font-weight: 500; font-size: 14px; margin-bottom: 5px; display: block;">Tên WiFi (SSID):</label>
-                <input type="text" id="ssid" placeholder="Nhập tên mạng WiFi nhà bạn...">
-            </div>
-            
-            <div style="margin-bottom: 20px;">
-                <label style="font-weight: 500; font-size: 14px; margin-bottom: 5px; display: block;">Mật khẩu:</label>
-                <input type="password" id="pass" placeholder="Nhập mật khẩu WiFi...">
-            </div>
-            
-            <button onclick="connectWifi(this)" style="width: 100%; padding: 12px; font-size: 16px;">
-                <span class="loader"></span> KẾT NỐI WIFI
-            </button>
+        <div style="display: flex; align-items: center; margin-bottom: 24px;">
+            <a href="/" style="display: flex; align-items: center; font-size: 17px;">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px; margin-left: -8px;"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                Trở về
+            </a>
         </div>
         
-        <div style="text-align: center; margin-top: 10px;">
-            <a href="/" style="color: var(--text-muted); text-decoration: none;">&larr; Quay lại Dashboard</a>
+        <h1 class="header">Wi-Fi</h1>
+        
+        <div class="list-group" style="margin-bottom: 12px;">
+            <div class="list-item">
+                <div class="item-content">
+                    <div class="item-title">Mạng hiện tại</div>
+                    <div class="item-subtitle" id="wifiStatusText">Đang kiểm tra...</div>
+                </div>
+                <div class="item-action">
+                    <div class="badge" id="wifiBadge" style="display: none;"></div>
+                </div>
+            </div>
         </div>
+        
+        <div class="section-title">Kết nối mạng mới</div>
+        <div class="list-group">
+            <div class="list-item">
+                <div class="item-content">
+                    <input type="text" id="ssid" placeholder="Tên mạng (SSID)">
+                </div>
+            </div>
+            <div class="list-item">
+                <div class="item-content">
+                    <input type="password" id="pass" placeholder="Mật khẩu">
+                </div>
+            </div>
+        </div>
+        
+        <button class="btn-block" id="btnConnect" onclick="connectWifi(this)">
+            <span class="loader" style="margin-right: 8px;"></span>
+            Kết nối
+        </button>
     </div>
     
     <script src="/app.js"></script>
     <script>
-        // Lấy status wifi hiện tại
         fetch('/api/wifi/status').then(r => r.json()).then(d => {
-            const st = document.getElementById('wifiStatus');
+            const st = document.getElementById('wifiStatusText');
+            const bg = document.getElementById('wifiBadge');
             if(d.isHomeWifi) {
-                st.innerText = '✅ Đang kết nối mạng LAN (' + d.ip + ')';
-                st.style.color = 'var(--success)';
+                st.innerText = d.ssid || 'Đã kết nối';
+                bg.innerText = d.ip;
+                bg.style.display = 'block';
+                bg.classList.add('connected');
             } else {
-                st.innerText = '⚠️ Đang phát Hotspot (Chưa kết nối mạng)';
-                st.style.color = 'var(--danger)';
+                st.innerText = 'Chưa kết nối internet';
+                bg.innerText = 'Hotspot';
+                bg.style.display = 'block';
+                bg.classList.remove('connected');
             }
         });
         
@@ -56,7 +74,7 @@
             const pass = document.getElementById('pass').value;
             
             if (!ssid) {
-                showToast("Vui lòng nhập tên WiFi!", true);
+                showToast("Vui lòng nhập tên mạng Wi-Fi", true);
                 return;
             }
             
@@ -70,7 +88,7 @@
                 
                 showToast(data.message, !data.success);
             } catch(e) {
-                showToast("Lỗi gửi lệnh kết nối!", true);
+                showToast("Lỗi gửi lệnh kết nối", true);
             } finally {
                 btn.classList.remove('loading');
                 btn.disabled = false;

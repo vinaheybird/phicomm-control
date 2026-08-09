@@ -4,8 +4,7 @@ function showToast(message, isError = false) {
     if (!container) return;
     
     const toast = document.createElement('div');
-    toast.className = 'toast';
-    toast.style.backgroundColor = isError ? 'var(--danger)' : '#333';
+    toast.className = 'toast ' + (isError ? 'error' : '');
     toast.innerText = message;
     
     container.appendChild(toast);
@@ -16,16 +15,17 @@ function showToast(message, isError = false) {
     // Remove after 3s
     setTimeout(() => {
         toast.classList.remove('show');
-        setTimeout(() => toast.remove(), 300);
+        setTimeout(() => toast.remove(), 400);
     }, 3000);
 }
 
-// Hàm fetch API bọc sẵn hiệu ứng Loading trên Button
-async function postApi(url, btnElement = null) {
+async function postApi(url, btnElement = null, loaderId = null) {
     if (btnElement) {
         btnElement.classList.add('loading');
         btnElement.disabled = true;
     }
+    const loader = loaderId ? document.getElementById(loaderId) : null;
+    if (loader) loader.style.display = 'block';
     
     try {
         const res = await fetch(url, { method: 'POST' });
@@ -35,13 +35,12 @@ async function postApi(url, btnElement = null) {
             showToast(data.message, !data.success);
         }
         
-        // Refresh ngay sau khi thao tác
         if (window.refreshStatus) {
             await window.refreshStatus();
         }
         return data;
     } catch (err) {
-        showToast("Lỗi kết nối tới loa!", true);
+        showToast("Không thể kết nối với loa", true);
         console.error(err);
         return { success: false };
     } finally {
@@ -49,6 +48,7 @@ async function postApi(url, btnElement = null) {
             btnElement.classList.remove('loading');
             btnElement.disabled = false;
         }
+        if (loader) loader.style.display = 'none';
     }
 }
 
@@ -58,19 +58,23 @@ async function refreshStatus() {
         const res = await fetch('/api/status');
         const d = await res.json();
         
-        // Cập nhật Bluetooth Status
-        const btStatusEl = document.getElementById('btStatus');
-        if (btStatusEl) {
+        const btStatusText = document.getElementById('btStatusText');
+        if (btStatusText) {
             if (d.btEnabled) {
-                btStatusEl.innerText = d.connectedDevice ? '🟢 Đã kết nối: ' + d.connectedDevice.name : '🟡 Đang chờ kết nối...';
+                btStatusText.innerText = d.connectedDevice ? d.connectedDevice.name : 'Đang tìm kiếm...';
             } else {
-                btStatusEl.innerText = '🔴 Đã tắt';
+                btStatusText.innerText = 'Tắt';
             }
         }
         
-        // Toggles
         const btToggleEl = document.getElementById('btToggle');
         if (btToggleEl && btToggleEl.checked !== d.btEnabled) btToggleEl.checked = d.btEnabled;
+        
+        // Hiện/Ẩn row ghép đôi
+        const discoverRow = document.getElementById('discoverRow');
+        if (discoverRow) {
+            discoverRow.style.display = d.btEnabled ? 'flex' : 'none';
+        }
         
         const autoReEl = document.getElementById('btAuto');
         if (autoReEl && autoReEl.checked !== d.autoReconnect) autoReEl.checked = d.autoReconnect;
@@ -84,47 +88,43 @@ async function refreshStatus() {
         const muteToggleEl = document.getElementById('muteToggle');
         if (muteToggleEl && muteToggleEl.checked !== d.promptMute) muteToggleEl.checked = d.promptMute;
         
-        // Volume
         const volRangeEl = document.getElementById('volRange');
-        const volLabelEl = document.getElementById('volLabel');
         if (volRangeEl && document.activeElement !== volRangeEl) {
             volRangeEl.value = d.volume;
         }
-        if (volLabelEl) volLabelEl.innerText = d.volume + '%';
         
-        // Danh sách thiết bị
         const pairedList = document.getElementById('pairedList');
         if (pairedList) {
             if (!d.pairedDevices || d.pairedDevices.length === 0) {
-                pairedList.innerHTML = '<p style="color: var(--text-muted); text-align: center; margin-top: 10px;">Chưa có thiết bị ghép đôi.</p>';
+                pairedList.innerHTML = '<div class="list-item"><div class="item-content"><div class="item-title" style="color:var(--text-muted)">Không có thiết bị</div></div></div>';
             } else {
                 pairedList.innerHTML = d.pairedDevices.map(dev => `
-                    <div class="device-item">
-                        <div class="device-info">
-                            <span class="device-name">${dev.name}</span>
-                            <span class="device-mac">${dev.address}</span>
+                    <div class="list-item">
+                        <div class="item-content">
+                            <div class="item-title">${dev.name}</div>
+                            <div class="item-subtitle">${dev.address}</div>
                         </div>
-                        ${dev.isConnected 
-                            ? '<span class="status-badge">Đang phát</span>' 
-                            : `<button onclick="postApi('/api/bluetooth/connect?address=${dev.address}', this)">
-                                 <span class="loader"></span>Kết Nối
-                               </button>`
-                        }
+                        <div class="item-action">
+                            ${dev.isConnected 
+                                ? '<div class="badge connected">Đã kết nối</div>' 
+                                : `<button class="btn" onclick="postApi('/api/bluetooth/connect?address=${dev.address}', this)">
+                                     <span class="loader"></span> Kết nối
+                                   </button>`
+                            }
+                        </div>
                     </div>
                 `).join('');
             }
         }
     } catch (e) {
-        console.error("Lỗi khi lấy trạng thái:", e);
+        console.error("Lỗi lấy trạng thái:", e);
     }
 }
 
-// Khởi chạy
 document.addEventListener('DOMContentLoaded', () => {
-    // Chỉ chạy refresh nếu đang ở trang có id btStatus
-    if (document.getElementById('btStatus')) {
+    if (document.getElementById('btToggle')) {
         window.refreshStatus = refreshStatus;
         refreshStatus();
-        setInterval(refreshStatus, 4000);
+        setInterval(refreshStatus, 3000);
     }
 });

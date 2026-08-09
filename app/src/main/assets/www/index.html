@@ -3,94 +3,133 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Phicomm R1 Controller</title>
+    <title>Phicomm R1</title>
     <link rel="stylesheet" href="/style.css">
 </head>
 <body>
     <div id="toast-container"></div>
     
     <div class="container">
-        <h2>🔊 Phicomm R1</h2>
+        <h1 class="header">Phicomm R1</h1>
         
-        <!-- Bluetooth Section -->
-        <div class="card">
-            <div class="card-title">Bluetooth</div>
-            
-            <div class="row">
-                <span>Trạng thái: <b id="btStatus">Đang tải...</b></span>
-                <label class="switch">
-                    <input type="checkbox" id="btToggle" onchange="postApi('/api/bluetooth/toggle')">
-                    <span class="slider"></span>
-                </label>
+        <div class="section-title">Bluetooth</div>
+        <div class="list-group">
+            <div class="list-item">
+                <div class="icon-box bt">
+                    <svg viewBox="0 0 24 24"><polyline points="6.5 6.5 17.5 17.5 12 23 12 1 17.5 6.5 6.5 17.5"></polyline></svg>
+                </div>
+                <div class="item-content">
+                    <div class="item-title">Bluetooth</div>
+                    <div class="item-subtitle" id="btStatusText">Đang tải...</div>
+                </div>
+                <div class="item-action">
+                    <span class="loader" id="btToggleLoader" style="margin-right: 8px;"></span>
+                    <label class="switch">
+                        <input type="checkbox" id="btToggle" onchange="postApi('/api/bluetooth/toggle', null, 'btToggleLoader')">
+                        <span class="slider"></span>
+                    </label>
+                </div>
             </div>
             
-            <div class="row" style="margin-top: 20px;">
-                <button onclick="postApi('/api/bluetooth/discover', this)" style="flex: 1; margin-right: 10px;">
-                    <span class="loader"></span> Dò Tìm (5p)
-                </button>
-                <button onclick="postApi('/api/bluetooth/disconnect', this)" class="danger" style="flex: 1;">
-                    <span class="loader"></span> Ngắt Kết Nối
-                </button>
+            <div class="list-item" id="discoverRow">
+                <div class="item-content">
+                    <button class="btn" onclick="postApi('/api/bluetooth/discover', this)">
+                        <span class="loader"></span> Cho phép ghép đôi mới
+                    </button>
+                </div>
             </div>
             
-            <div class="row" style="margin-top: 15px;">
-                <span style="font-size: 14px;">Tự nối lại thiết bị cũ khi khởi động</span>
-                <label class="switch">
-                    <input type="checkbox" id="btAuto" onchange="postApi('/api/bluetooth/auto-reconnect?enabled='+this.checked)">
-                    <span class="slider"></span>
-                </label>
+            <div class="list-item">
+                <div class="item-content">
+                    <div class="item-title">Tự động kết nối lại</div>
+                </div>
+                <div class="item-action">
+                    <label class="switch">
+                        <input type="checkbox" id="btAuto" onchange="postApi('/api/bluetooth/auto-reconnect?enabled='+this.checked)">
+                        <span class="slider"></span>
+                    </label>
+                </div>
             </div>
-            
-            <div style="margin-top: 25px;">
-                <b style="font-size: 14px; color: var(--text-muted); text-transform: uppercase;">Thiết Bị Đã Ghép Đôi</b>
-                <div id="pairedList" style="margin-top: 10px;">
-                    <!-- Devices injected here -->
+        </div>
+        
+        <div class="section-title">Thiết bị ghép đôi</div>
+        <div class="list-group" id="pairedList">
+            <!-- Render via JS -->
+            <div class="list-item"><div class="item-content"><div class="item-title" style="color:var(--text-muted)">Đang tải...</div></div></div>
+        </div>
+
+        <div class="section-title">Hệ thống & Âm thanh</div>
+        <div class="list-group">
+            <div class="list-item" style="padding: 0;">
+                <div class="range-container" style="width:100%">
+                    <svg class="range-icon" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+                    <input type="range" id="volRange" min="0" max="100" onchange="postApi('/api/volume?level='+this.value)">
+                </div>
+            </div>
+            <div class="list-item">
+                <div class="icon-box vol">
+                    <svg viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4V5z"></path><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line></svg>
+                </div>
+                <div class="item-content">
+                    <div class="item-title">Tắt giọng nói tiếng Trung</div>
+                </div>
+                <div class="item-action">
+                    <label class="switch">
+                        <input type="checkbox" id="muteToggle" onchange="postApi('/api/prompt-mute/toggle')">
+                        <span class="slider"></span>
+                    </label>
                 </div>
             </div>
         </div>
 
-        <!-- Cấu Hình Section -->
-        <div class="card">
-            <div class="card-title">Cấu Hình Chung</div>
-            
-            <div class="row">
-                <span>Âm lượng (<span id="volLabel">50%</span>)</span>
+        <div class="section-title">Đèn LED</div>
+        <div class="list-group">
+            <div class="list-item">
+                <div class="icon-box led">
+                    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+                </div>
+                <div class="item-content">
+                    <div class="item-title">Bật đèn LED</div>
+                </div>
+                <div class="item-action">
+                    <label class="switch">
+                        <input type="checkbox" id="ledToggle" onchange="postApi('/api/led/toggle')">
+                        <span class="slider"></span>
+                    </label>
+                </div>
             </div>
-            <div class="row">
-                <input type="range" id="volRange" min="0" max="100" onchange="postApi('/api/volume?level='+this.value)">
-            </div>
-            
-            <div class="row" style="margin-top: 20px;">
-                <span>Tắt tiếng TQ (Prompt Mute)</span>
-                <label class="switch">
-                    <input type="checkbox" id="muteToggle" onchange="postApi('/api/prompt-mute/toggle')">
-                    <span class="slider"></span>
-                </label>
-            </div>
-            
-            <div class="row" style="margin-top: 15px;">
-                <span>Bật / Tắt Đèn LED</span>
-                <label class="switch">
-                    <input type="checkbox" id="ledToggle" onchange="postApi('/api/led/toggle')">
-                    <span class="slider"></span>
-                </label>
-            </div>
-            
-            <div class="row" style="margin-top: 10px;">
-                <span style="font-size: 14px; width: 40%;">Màu LED</span>
-                <select id="ledMode" onchange="postApi('/api/led/mode?mode='+this.value)" style="width: 60%;">
-                    <option value="BLUE_SOLID">Xanh lam</option>
-                    <option value="CYAN_PULSE">Xanh lam nháy</option>
-                    <option value="ORANGE_SOLID">Cam</option>
-                    <option value="GREEN_SOLID">Xanh lá</option>
-                    <option value="OFF">Tắt hẳn</option>
-                </select>
+            <div class="list-item">
+                <div class="item-content">
+                    <div class="item-title">Kiểu hiển thị</div>
+                </div>
+                <div class="item-action">
+                    <select id="ledMode" onchange="postApi('/api/led/mode?mode='+this.value)">
+                        <option value="BLUE_SOLID">Xanh lam</option>
+                        <option value="CYAN_PULSE">Xanh nhấp nháy</option>
+                        <option value="ORANGE_SOLID">Cam</option>
+                        <option value="GREEN_SOLID">Xanh lá</option>
+                        <option value="OFF">Tắt</option>
+                    </select>
+                </div>
             </div>
         </div>
         
-        <!-- Link to WiFi -->
-        <div style="text-align: center; margin-bottom: 30px;">
-            <a href="/setup-wifi" style="color: var(--primary); text-decoration: none; font-weight: bold;">📶 Chuyển sang Cài Đặt WiFi</a>
+        <div style="margin-top: 40px;">
+            <a href="/setup-wifi">
+                <div class="list-group">
+                    <div class="list-item">
+                        <div class="icon-box wifi">
+                            <svg viewBox="0 0 24 24"><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line></svg>
+                        </div>
+                        <div class="item-content">
+                            <div class="item-title" style="color: var(--text);">Cài đặt mạng Wi-Fi</div>
+                        </div>
+                        <div class="item-action">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                        </div>
+                    </div>
+                </div>
+            </a>
         </div>
     </div>
     
