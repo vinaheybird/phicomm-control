@@ -7,7 +7,7 @@ import android.util.Log
 import com.google.gson.Gson
 
 import com.phicomm.gemini.bluetooth.BluetoothController
-import com.phicomm.gemini.hardware.LedController
+
 import fi.iki.elonen.NanoHTTPD
 import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
@@ -147,8 +147,7 @@ class WebConfigServer(
                     } else null
                     responseMap["pairedDevices"] = pairedDevices
                     responseMap["autoReconnect"] = BluetoothController.isAutoReconnectEnabled()
-                    responseMap["ledEnabled"] = LedController.isEnabled()
-                    responseMap["ledMode"] = LedController.getCurrentMode().name
+                    // Removed LED state
 
                     responseMap["volume"] = volPercent
                 }
@@ -190,26 +189,6 @@ class WebConfigServer(
                     responseMap["success"] = true
                     responseMap["autoReconnect"] = enabled
                 }
-
-                "/api/led/toggle" -> {
-                    val newState = LedController.toggleLed()
-                    responseMap["success"] = true
-                    responseMap["ledEnabled"] = newState
-                }
-
-                "/api/led/mode" -> {
-                    val modeStr = session.parameters["mode"]?.get(0) ?: "BLUE_SOLID"
-                    try {
-                        val mode = LedController.LedMode.valueOf(modeStr)
-                        LedController.setMode(mode)
-                        responseMap["success"] = true
-                        responseMap["ledMode"] = mode.name
-                    } catch (e: Exception) {
-                        responseMap["success"] = false
-                        responseMap["message"] = "Chế độ LED không hợp lệ"
-                    }
-                }
-
 
 
                 "/api/volume" -> {

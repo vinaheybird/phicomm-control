@@ -7,7 +7,7 @@ import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.phicomm.gemini.bluetooth.BluetoothController
-import com.phicomm.gemini.hardware.LedController
+
 import com.phicomm.gemini.web.MDnsPublisher
 import com.phicomm.gemini.web.WebConfigServer
 
@@ -56,7 +56,7 @@ class PhicommGeminiService : Service() {
 
         // 4. Khởi tạo các phần cứng
         try { BluetoothController.init(this) } catch (e: Throwable) { Log.e(TAG, "Lỗi BT: ${e.message}") }
-        try { LedController.init(this) } catch (e: Throwable) { Log.e(TAG, "Lỗi LED: ${e.message}") }
+
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
