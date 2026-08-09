@@ -5,7 +5,7 @@ import android.media.AudioManager
 import android.net.wifi.WifiManager
 import android.util.Log
 import com.google.gson.Gson
-import com.phicomm.gemini.audio.PromptMuteController
+
 import com.phicomm.gemini.bluetooth.BluetoothController
 import com.phicomm.gemini.hardware.LedController
 import fi.iki.elonen.NanoHTTPD
@@ -149,7 +149,7 @@ class WebConfigServer(
                     responseMap["autoReconnect"] = BluetoothController.isAutoReconnectEnabled()
                     responseMap["ledEnabled"] = LedController.isEnabled()
                     responseMap["ledMode"] = LedController.getCurrentMode().name
-                    responseMap["promptMute"] = PromptMuteController.isPromptMuteEnabled()
+
                     responseMap["volume"] = volPercent
                 }
 
@@ -210,12 +210,7 @@ class WebConfigServer(
                     }
                 }
 
-                "/api/prompt-mute/toggle" -> {
-                    val current = PromptMuteController.isPromptMuteEnabled()
-                    PromptMuteController.setPromptMuteEnabled(!current)
-                    responseMap["success"] = true
-                    responseMap["promptMute"] = !current
-                }
+
 
                 "/api/volume" -> {
                     val volParam = session.parameters["level"]?.get(0) ?: "50"

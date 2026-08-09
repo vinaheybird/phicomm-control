@@ -94,9 +94,7 @@ async function refreshStatus() {
         const ledModeEl = document.getElementById('ledMode');
         if (ledModeEl && !ledModeEl.disabled && ledModeEl.value !== d.ledMode) ledModeEl.value = d.ledMode;
         
-        const muteToggleEl = document.getElementById('muteToggle');
-        if (muteToggleEl && !muteToggleEl.disabled && muteToggleEl.checked !== d.promptMute) muteToggleEl.checked = d.promptMute;
-        
+
         const volRangeEl = document.getElementById('volRange');
         if (volRangeEl && document.activeElement !== volRangeEl) {
             volRangeEl.value = d.volume;
