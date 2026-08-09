@@ -30,6 +30,23 @@ object BluetoothController {
             if (profile == A2DP_SINK_PROFILE) {
                 Log.d(TAG, "=> ĐÃ KẾT NỐI A2DP_SINK (Profile ID 10): ${proxy?.javaClass?.name}")
                 a2dpSinkProxy = proxy
+                
+                // Tự động kết nối thiết bị cũ nếu có
+                if (isAutoReconnectEnabled()) {
+                    val lastDevice = getLastConnectedDeviceAddress()
+                    if (lastDevice != null) {
+                        Log.d(TAG, "Tự động kết nối lại thiết bị cũ: $lastDevice")
+                        // Cần delay nhẹ 1 giây để adapter thực sự sẵn sàng nhận lệnh A2DP sau khi proxy nối xong
+                        Thread {
+                            Thread.sleep(1500)
+                            try {
+                                reconnectLastDevice()
+                            } catch (e: Exception) {
+                                Log.e(TAG, "Lỗi khi tự động kết nối lại: ${e.message}")
+                            }
+                        }.start()
+                    }
+                }
             }
         }
 
