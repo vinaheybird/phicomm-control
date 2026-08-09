@@ -6,7 +6,6 @@ import android.content.Intent
 import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
-import com.phicomm.gemini.audio.PromptMuteController
 import com.phicomm.gemini.bluetooth.BluetoothController
 import com.phicomm.gemini.hardware.LedController
 import com.phicomm.gemini.web.MDnsPublisher
@@ -57,7 +56,6 @@ class PhicommGeminiService : Service() {
 
         // 4. Khởi tạo các phần cứng
         try { BluetoothController.init(this) } catch (e: Throwable) { Log.e(TAG, "Lỗi BT: ${e.message}") }
-        try { PromptMuteController.init(this) } catch (e: Throwable) { Log.e(TAG, "Lỗi Mute: ${e.message}") }
         try { LedController.init(this) } catch (e: Throwable) { Log.e(TAG, "Lỗi LED: ${e.message}") }
     }
 
@@ -92,7 +90,6 @@ class PhicommGeminiService : Service() {
 
     override fun onDestroy() {
         try { mDnsPublisher?.unregisterService() } catch (e: Throwable) {}
-        try { PromptMuteController.unregister() } catch (e: Throwable) {}
         try { webConfigServer?.stop() } catch (e: Throwable) {}
         super.onDestroy()
     }
