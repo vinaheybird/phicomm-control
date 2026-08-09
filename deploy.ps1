@@ -50,12 +50,6 @@ if ($installOutput -match "Success") {
 
     Write-Host "Xóa cache và khởi động lại dịch vụ..." -ForegroundColor Yellow
     adb -s $DeviceID shell "am force-stop com.phicomm.gemini"
-
-    # Start LedDaemon
-    Write-Host "Khởi chạy LedDaemon (Quyền Shell)..." -ForegroundColor Yellow
-    adb -s $DeviceID shell "kill \$(ps | grep LedDaemon | awk '{print \$2}')" 2>$null
-    adb -s $DeviceID shell "export CLASSPATH=\$(pm path com.phicomm.gemini | cut -d':' -f2); nohup app_process /system/bin com.phicomm.gemini.hardware.LedDaemon > /dev/null 2>&1 &"
-
     # Start background service
     adb -s $DeviceID shell "am startservice -n com.phicomm.gemini/.PhicommGeminiService"
     Write-Host "Đã xong! Bạn có thể vào Web Dashboard tại cổng 8080." -ForegroundColor Green
