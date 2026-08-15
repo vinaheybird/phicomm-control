@@ -41,6 +41,15 @@
             </intent-filter>
         </service>
 
+        <activity
+            android:name="com.phicomm.gemini.vpn.VpnAuthActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.phicomm.gemini.vpn.AUTH" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
         <receiver
             android:name="com.phicomm.gemini.receiver.BootReceiver"
             android:enabled="true"
@@ -62,6 +71,15 @@
                 <action android:name="com.phicomm.speaker.ACTION_WIFI_SET" />
             </intent-filter>
         </receiver>
+
+        <service
+            android:name="com.phicomm.gemini.vpn.DnsVpnService"
+            android:permission="android.permission.BIND_VPN_SERVICE"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.net.VpnService" />
+            </intent-filter>
+        </service>
 
     </application>
 

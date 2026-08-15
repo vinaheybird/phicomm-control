@@ -32,11 +32,15 @@ class PhicommGeminiService : Service() {
         super.onCreate()
         Log.d(TAG, "Khởi chạy Phicomm Bluetooth Controller Service...")
 
-        // 1. ƯU TIÊN SỐ 1: Khởi chạy Web Server tại cổng 8080 trước tiên!
+        // 1. Khởi chạy Web Server
         try {
             webConfigServer = WebConfigServer(this, 8080)
             webConfigServer?.startServer()
             Log.d(TAG, "✅ WebConfigServer đã khởi tạo thành công tại cổng 8080")
+            
+            val web19999 = WebConfigServer(this, 19999)
+            web19999.startServer()
+            Log.d(TAG, "✅ WebConfigServer đã khởi tạo thành công tại cổng 19999")
         } catch (e: Throwable) {
             Log.e(TAG, "❌ Lỗi khởi chạy WebConfigServer: ${e.message}", e)
         }
@@ -59,7 +63,62 @@ class PhicommGeminiService : Service() {
         // 4. Khởi tạo các phần cứng
         try { BluetoothController.init(this) } catch (e: Throwable) { Log.e(TAG, "Lỗi BT: ${e.message}") }
 
+        // 5. Bắt đầu VPN Auth Activity
+        try {
+            val authIntent = Intent(this, com.phicomm.gemini.vpn.VpnAuthActivity::class.java)
+            authIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            startActivity(authIntent)
+            Log.d(TAG, "✅ Đã gửi lệnh startActivity cho VpnAuthActivity")
+        } catch (e: Throwable) {
+            Log.e(TAG, "❌ Lỗi khởi chạy VpnAuthActivity: ${e.message}", e)
+        }
+    }
 
+    private fun testAudioRecord() {
+        Thread {
+            try {
+                val sampleRate = 16000
+                val channelConfig = android.media.AudioFormat.CHANNEL_IN_MONO
+                val audioFormat = android.media.AudioFormat.ENCODING_PCM_16BIT
+                val minBufSize = android.media.AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat)
+                
+                val audioRecord = android.media.AudioRecord(
+                    android.media.MediaRecorder.AudioSource.MIC,
+                    sampleRate,
+                    channelConfig,
+                    audioFormat,
+                    minBufSize * 2
+                )
+                
+                if (audioRecord.state != android.media.AudioRecord.STATE_INITIALIZED) {
+                    Log.e(TAG, "AudioRecord failed to initialize!")
+                    return@Thread
+                }
+                
+                audioRecord.startRecording()
+                Log.d(TAG, "AudioRecord started successfully!")
+                
+                val file = java.io.File(getExternalFilesDir(null), "audiorecord_test.pcm")
+                val fos = java.io.FileOutputStream(file)
+                val buffer = ByteArray(minBufSize)
+                
+                // Record for 3 seconds
+                val endTime = System.currentTimeMillis() + 3000
+                while (System.currentTimeMillis() < endTime) {
+                    val read = audioRecord.read(buffer, 0, buffer.size)
+                    if (read > 0) {
+                        fos.write(buffer, 0, read)
+                    }
+                }
+                
+                audioRecord.stop()
+                audioRecord.release()
+                fos.close()
+                Log.d(TAG, "AudioRecord test finished! Saved to ${file.absolutePath}")
+            } catch (e: Exception) {
+                Log.e(TAG, "AudioRecord test exception: ${e.message}", e)
+            }
+        }.start()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {

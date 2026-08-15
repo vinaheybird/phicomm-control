@@ -46,6 +46,7 @@ class WebConfigServer(
     private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
     private val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
     private val gson = Gson()
+    private val audioBuffer = java.io.ByteArrayOutputStream()
 
     // Port firmware gốc Phicomm R1 dùng để nhận config WiFi
     private val PHICOMM_WIFI_API = "http://localhost:8989/api/configwifi"
@@ -83,7 +84,82 @@ class WebConfigServer(
             return serveAssetFile("www/app.js", "application/javascript; charset=utf-8")
         }
 
-        // Fallback
+        // Fallback for Fake Server (Catch-all for Phicomm apps)
+        if (method == Method.POST) {
+            Log.i(TAG, "FAKE SERVER CAUGHT POST REQUEST: $uri")
+            
+            // Print headers
+            for ((key, value) in session.headers) {
+                Log.d(TAG, "Header: $key = $value")
+            }
+
+            // Save raw binary body directly from inputStream
+            if (Method.POST == session.method || Method.PUT == session.method) {
+                if (uri.contains("/trafficRouter")) {
+                    val contentLength = session.headers["content-length"]?.toIntOrNull() ?: 0
+                    if (contentLength > 0) {
+                        val buffer = ByteArray(4096)
+                        var totalRead = 0
+                        while (totalRead < contentLength) {
+                            val toRead = Math.min(buffer.size, contentLength - totalRead)
+                            val read = session.inputStream.read(buffer, 0, toRead)
+                            if (read == -1) break
+                            audioBuffer.write(buffer, 0, read)
+                            totalRead += read
+                        }
+                        Log.d(TAG, "Buffered $totalRead bytes of raw Opus data.")
+                    } else if (contentLength == 0) {
+                        // End of Audio Stream (VAD detected silence)
+                        val rawData = audioBuffer.toByteArray()
+                        audioBuffer.reset()
+                        if (rawData.isNotEmpty()) {
+                            val file = java.io.File(context.getExternalFilesDir(null), "query_${System.currentTimeMillis()}.wav")
+                            Log.d(TAG, "End of audio stream. Decoding ${rawData.size} bytes...")
+                            Thread {
+                                com.phicomm.gemini.audio.OpusDecoder.decodeToWav(rawData, file)
+                            }.start()
+                        }
+                    }
+                }
+            }
+
+            val fakeResponse = if (uri.contains("/trafficRouter")) {
+                """
+                {
+                    "code": 0,
+                    "status": "success",
+                    "result": {
+                        "nlu": {
+                            "domain": "unknown",
+                            "intent": "unknown"
+                        }
+                    }
+                }
+                """.trimIndent()
+            } else {
+                """
+                {
+                    "status": 0,
+                    "code": 0,
+                    "message": "success",
+                    "result": {
+                        "userId": "12345",
+                        "token": "fake-token",
+                        "hasBound": true,
+                        "isBind": true,
+                        "boundStatus": 1,
+                        "isBounded": true
+                    },
+                    "data": {
+                        "userId": "12345",
+                        "token": "fake-token"
+                    }
+                }
+                """.trimIndent()
+            }
+            return newFixedLengthResponse(Response.Status.OK, "application/json", fakeResponse)
+        }
+
         return serveAssetFile("www/index.html", "text/html; charset=utf-8")
     }
 
