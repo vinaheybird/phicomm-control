@@ -1,10 +1,10 @@
-# 🔊 Phicomm R1 Bluetooth Web Controller (Loa Bluetooth Điều Khiển Qua Trang Web)
+# Phicomm R1 Bluetooth Web Controller (Loa Bluetooth Điều Khiển Qua Trang Web)
 
 Dự án chuyển đổi loa **Phicomm R1 (Feixun R1)** thành **Loa Bluetooth cao cấp điều khiển dễ dàng qua Trang Web (Web Controller)**. Hoạt động 100% bằng Dịch vụ Android ngầm chạy trực tiếp trên loa, cho phép bạn truy cập từ bất kỳ điện thoại hoặc máy tính nào cùng mạng Wi-Fi qua địa chỉ `http://phicomm.local:8080`.
 
 ---
 
-## 🔥 TÍNH NĂNG NỔI BẬT
+## TÍNH NĂNG NỔI BẬT
 
 1. **Bật / Tắt Bluetooth Chủ Động**:
    - Công tắc (Toggle) bật/tắt phát sóng Bluetooth trực tiếp trên giao diện Web.
@@ -18,33 +18,27 @@ Dự án chuyển đổi loa **Phicomm R1 (Feixun R1)** thành **Loa Bluetooth c
 3. **Tắt Âm Thanh Thông Báo Bluetooth Quá To (Prompt Mute)**:
    - Tự động tắt tiếng (mute) các âm thanh nói/thông báo giọng nói mặc định quá to của loa Phicomm R1 khi bật/tắt hoặc ngắt/kết nối Bluetooth.
 
-4. **Điều Khiển Đèn LED & Tiết Kiệm Điện**:
-   - Công tắc Bật/Tắt dải đèn LED RGB (Tắt LED giúp tiết kiệm thêm 0.5W - 1W điện năng).
-   - Tùy chỉnh màu sắc & hiệu ứng đèn LED (Xanh lam, Xanh nháy nhẹ, Vàng cam, Xanh lá, Tắt hẳn).
-
-5. **Vô Hiệu Hóa App Rác Mặc Định (Phương Pháp Xiaozhi)**:
+4. **Vô Hiệu Hóa App Rác Mặc Định (Phương Pháp Xiaozhi)**:
    - Cung cấp sẵn script ADB tự động tắt (`pm hide` / `pm disable`) toàn bộ các ứng dụng rác mặc định của Phicomm (`com.phicomm.speaker.*`), giúp loa khởi động nhanh, giải phóng RAM và CPU tải chỉ <2%.
    - ⚠️ **LƯU Ý QUAN TRỌNG**: Bạn **BẮT BUỘC** phải khởi động lại (reboot) loa sau khi ẩn app rác. Nếu không khởi động lại, dịch vụ `EchoService` vẫn kẹt trong RAM và sẽ tự động ngắt kết nối Bluetooth của bạn!
 
 ---
 
-## ⚡ MỨC TIÊU THỤ ĐIỆN NĂNG
+## MỨC TIÊU THỤ ĐIỆN NĂNG
 
 - **Chế độ chờ (Idle - Cắm điện 24/7)**: ~2W - 4W (Tiền điện chỉ khoảng **4.000 - 5.000 VNĐ / tháng**).
 - **Phát nhạc vừa phải**: ~5W - 8W.
 - **Phát nhạc tối đa công suất**: ~15W - 20W.
-- **Tắt dải đèn LED**: Giảm bớt 0.5W - 1W điện năng tiêu thụ.
-
 ---
 
-## 📱 HƯỚNG DẪN CÀI ĐẶT QUA GITHUB (iSH SHELL / TERMUX / LINUX / MAC)
+## HƯỚNG DẪN CÀI ĐẶT QUA GITHUB (iSH SHELL / TERMUX / LINUX / MAC)
 
 Dành cho **iPhone/iPad** (App **iSH Shell**) & **Android** (**Termux**).  
 Do `curl` và pipe trực tiếp thường gặp lỗi trên iSH, hãy dùng lệnh `wget` 2 bước chuẩn dưới đây:
 
 ---
 
-### 🚀 Lệnh Cài Đặt Tự Động (Dùng `wget` tương thích 100% trên iSH & Termux):
+### Lệnh Cài Đặt Tự Động (Dùng `wget` tương thích 100% trên iSH & Termux):
 
 ```bash
 wget -O install.sh https://raw.githubusercontent.com/vinaheybird/phicomm-control/main/install.sh && sh install.sh
@@ -57,7 +51,7 @@ wget -O install.sh https://raw.githubusercontent.com/vinaheybird/phicomm-control
 
 ---
 
-### 📋 Quy Trình Tự Động Của Script:
+### Quy Trình Tự Động Của Script:
 1. **Tải ADB & APK**: Tải file `PhicommGemini.apk` trực tiếp từ GitHub về máy.
 2. **Nhập Wi-Fi**: Script sẽ hỏi Tên & Mật Khẩu Wi-Fi nhà bạn (nếu chưa truyền vào).
 3. **Kết Nối Loa**: Bạn kết nối Wi-Fi máy/điện thoại vào Hotspot của loa (`Phicomm_R1_xxxx`) và nhấn **[ENTER]**.
@@ -69,18 +63,17 @@ http://phicomm.local:8080
 ```
 ---
 
-## 🌐 GIAO DIỆN WEB DASHBOARD (`http://phicomm.local:8080`)
+## GIAO DIỆN WEB DASHBOARD (`http://phicomm.local:8080`)
 
 Mở trình duyệt bất kỳ truy cập `http://phicomm.local:8080` (hoặc IP của loa) để điều khiển:
 - **Công tắc Bật/Tắt Bluetooth**
 - **Chọn & kết nối thiết bị Bluetooth 1-click**
-- **Công tắc Bật/Tắt Đèn LED & chọn màu**
 - **Công tắc Tắt âm thông báo Bluetooth to**
 - **Thanh trượt chỉnh âm lượng loa**
 
 ---
 
-## 🛠️ HƯỚNG DẪN BUILD APK BẰNG GRADLE (DÀNH CHO DEVELOPER)
+## HƯỚNG DẪN BUILD APK BẰNG GRADLE (DÀNH CHO DEVELOPER)
 
 ### 1. Yêu Cầu Môi Trường
 - **JDK 17** (Ví dụ: OpenJDK 17 tại `C:\Program Files\Microsoft\jdk-17...`)
@@ -90,14 +83,14 @@ Mở trình duyệt bất kỳ truy cập `http://phicomm.local:8080` (hoặc IP
 
 ### 2. Các Lệnh Build APK Debug
 
-#### 💻 Trên Windows Command Prompt (CMD):
+#### Trên Windows Command Prompt (CMD):
 ```cmd
 set JAVA_HOME=C:\Program Files\Microsoft\jdk-17.0.19.10-hotspot
 set ANDROID_HOME=C:\Users\zkenz\AppData\Local\Android\Sdk
 gradlew.bat assembleDebug
 ```
 
-#### ⚡ Trên Windows PowerShell:
+#### Trên Windows PowerShell:
 ```powershell
 $env:JAVA_HOME = "C:\Program Files\Microsoft\jdk-17.0.19.10-hotspot"
 $env:ANDROID_HOME = "$env:LOCALAPPDATA\Android\Sdk"
@@ -110,7 +103,7 @@ $GRADLE_BIN = "$env:USERPROFILE\.gradle\wrapper\dists\gradle-8.5-bin\5t9huq95ubn
 & $GRADLE_BIN assembleDebug
 ```
 
-#### 🐧 Trên Linux / macOS:
+#### Trên Linux / macOS:
 ```bash
 export JAVA_HOME=/path/to/jdk-17
 export ANDROID_HOME=$HOME/Android/Sdk

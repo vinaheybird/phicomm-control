@@ -10,6 +10,8 @@ import com.phicomm.gemini.bluetooth.BluetoothController
 
 import com.phicomm.gemini.web.MDnsPublisher
 import com.phicomm.gemini.web.WebConfigServer
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
 
 /**
  * PhicommGeminiService — Background service đặt tại root package com.phicomm.gemini
@@ -57,6 +59,7 @@ class PhicommGeminiService : Service() {
         // 4. Khởi tạo các phần cứng
         try { BluetoothController.init(this) } catch (e: Throwable) { Log.e(TAG, "Lỗi BT: ${e.message}") }
 
+
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -91,8 +94,10 @@ class PhicommGeminiService : Service() {
     override fun onDestroy() {
         try { mDnsPublisher?.unregisterService() } catch (e: Throwable) {}
         try { webConfigServer?.stop() } catch (e: Throwable) {}
+
         super.onDestroy()
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
 }
+

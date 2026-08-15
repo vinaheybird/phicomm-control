@@ -147,7 +147,7 @@ class WebConfigServer(
                     } else null
                     responseMap["pairedDevices"] = pairedDevices
                     responseMap["autoReconnect"] = BluetoothController.isAutoReconnectEnabled()
-                    // Removed LED state
+
 
                     responseMap["volume"] = volPercent
                 }

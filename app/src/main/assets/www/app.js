@@ -88,12 +88,7 @@ async function refreshStatus() {
         const autoReEl = document.getElementById('btAuto');
         if (autoReEl && !autoReEl.disabled && autoReEl.checked !== d.autoReconnect) autoReEl.checked = d.autoReconnect;
         
-        const ledToggleEl = document.getElementById('ledToggle');
-        if (ledToggleEl && !ledToggleEl.disabled && ledToggleEl.checked !== d.ledEnabled) ledToggleEl.checked = d.ledEnabled;
-        
-        const ledModeEl = document.getElementById('ledMode');
-        if (ledModeEl && !ledModeEl.disabled && ledModeEl.value !== d.ledMode) ledModeEl.value = d.ledMode;
-        
+
 
         const volRangeEl = document.getElementById('volRange');
         if (volRangeEl && document.activeElement !== volRangeEl) {

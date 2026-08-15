@@ -57,3 +57,6 @@ if ($installOutput -match "Success") {
     Write-Host "`n❌ Cài đặt thất bại! Vui lòng kiểm tra log ở trên." -ForegroundColor Red
     exit 1
 }
+
+
+
