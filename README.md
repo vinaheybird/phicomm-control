@@ -18,7 +18,11 @@ Dự án chuyển đổi loa **Phicomm R1 (Feixun R1)** thành **Loa Bluetooth c
 3. **Tắt Âm Thanh Thông Báo Bluetooth Quá To (Prompt Mute)**:
    - Tự động tắt tiếng (mute) các âm thanh nói/thông báo giọng nói mặc định quá to của loa Phicomm R1 khi bật/tắt hoặc ngắt/kết nối Bluetooth.
 
-4. **Vô Hiệu Hóa App Rác Mặc Định (Phương Pháp Xiaozhi)**:
+4. **Theo Dõi Hiệu Suất Trực Quan (CPU & RAM Monitor)**:
+   - Tích hợp thanh tiến trình theo dõi % CPU và dung lượng RAM (Đã dùng/Tổng) theo thời gian thực trực tiếp trên Web Dashboard (độ trễ < 2s).
+   - Thiết kế tối ưu, không ảnh hưởng đến hiệu năng của loa (Tiêu thụ CPU cực thấp để lấy mẫu).
+
+5. **Vô Hiệu Hóa App Rác Mặc Định (Phương Pháp Xiaozhi)**:
    - Cung cấp sẵn script ADB tự động tắt (`pm hide` / `pm disable`) toàn bộ các ứng dụng rác mặc định của Phicomm (`com.phicomm.speaker.*`), giúp loa khởi động nhanh, giải phóng RAM và CPU tải chỉ <2%.
    - ⚠️ **LƯU Ý QUAN TRỌNG**: Bạn **BẮT BUỘC** phải khởi động lại (reboot) loa sau khi ẩn app rác. Nếu không khởi động lại, dịch vụ `EchoService` vẫn kẹt trong RAM và sẽ tự động ngắt kết nối Bluetooth của bạn!
 
@@ -70,6 +74,7 @@ Mở trình duyệt bất kỳ truy cập `http://phicomm.local:8080` (hoặc IP
 - **Chọn & kết nối thiết bị Bluetooth 1-click**
 - **Công tắc Tắt âm thông báo Bluetooth to**
 - **Thanh trượt chỉnh âm lượng loa**
+- **Trực quan hóa % mức sử dụng CPU và RAM theo thời gian thực**
 
 ---
 

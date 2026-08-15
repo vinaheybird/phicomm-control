@@ -7,6 +7,7 @@ import android.util.Log
 import com.google.gson.Gson
 
 import com.phicomm.gemini.bluetooth.BluetoothController
+import com.phicomm.gemini.utils.SystemMonitor
 
 import fi.iki.elonen.NanoHTTPD
 import java.io.OutputStreamWriter
@@ -148,6 +149,11 @@ class WebConfigServer(
                     responseMap["pairedDevices"] = pairedDevices
                     responseMap["autoReconnect"] = BluetoothController.isAutoReconnectEnabled()
 
+                    val sysMetrics = SystemMonitor.getMetrics(context)
+                    responseMap["cpuUsagePercent"] = sysMetrics.cpuUsagePercent
+                    responseMap["ramTotal"] = sysMetrics.ramTotal
+                    responseMap["ramUsed"] = sysMetrics.ramUsed
+                    responseMap["ramFree"] = sysMetrics.ramFree
 
                     responseMap["volume"] = volPercent
                 }

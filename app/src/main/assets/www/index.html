@@ -66,6 +66,28 @@
                     <input type="range" id="volRange" min="0" max="100" onchange="postApi('/api/volume?level='+this.value)">
                 </div>
             </div>
+            <div class="list-item">
+                <div class="item-content" style="width: 100%;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                        <span class="item-title">CPU</span>
+                        <span class="item-subtitle" id="cpuText">0%</span>
+                    </div>
+                    <div class="progress-bar-bg">
+                        <div class="progress-bar-fill" id="cpuBar" style="width: 0%;"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="list-item">
+                <div class="item-content" style="width: 100%;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                        <span class="item-title">RAM</span>
+                        <span class="item-subtitle" id="ramText">0 / 0 MB</span>
+                    </div>
+                    <div class="progress-bar-bg">
+                        <div class="progress-bar-fill" id="ramBar" style="width: 0%;"></div>
+                    </div>
+                </div>
+            </div>
         </div>
         
 

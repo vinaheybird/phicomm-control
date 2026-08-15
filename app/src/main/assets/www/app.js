@@ -88,7 +88,31 @@ async function refreshStatus() {
         const autoReEl = document.getElementById('btAuto');
         if (autoReEl && !autoReEl.disabled && autoReEl.checked !== d.autoReconnect) autoReEl.checked = d.autoReconnect;
         
-
+        // Cập nhật CPU và RAM
+        const cpuText = document.getElementById('cpuText');
+        const cpuBar = document.getElementById('cpuBar');
+        if (cpuText && cpuBar && d.cpuUsagePercent !== undefined) {
+            const cpu = d.cpuUsagePercent;
+            cpuText.innerText = cpu >= 0 ? `${cpu}%` : 'Lỗi';
+            if (cpu >= 0) {
+                cpuBar.style.width = `${cpu}%`;
+                cpuBar.className = 'progress-bar-fill' + (cpu > 85 ? ' danger' : (cpu > 60 ? ' warning' : ''));
+            } else {
+                cpuBar.style.width = `0%`;
+            }
+        }
+        
+        const ramText = document.getElementById('ramText');
+        const ramBar = document.getElementById('ramBar');
+        if (ramText && ramBar && d.ramTotal > 0) {
+            const usedMB = Math.round(d.ramUsed / (1024 * 1024));
+            const totalMB = Math.round(d.ramTotal / (1024 * 1024));
+            const percent = (d.ramUsed / d.ramTotal) * 100;
+            
+            ramText.innerText = `${usedMB} / ${totalMB} MB`;
+            ramBar.style.width = `${percent}%`;
+            ramBar.className = 'progress-bar-fill' + (percent > 85 ? ' danger' : (percent > 70 ? ' warning' : ''));
+        }
 
         const volRangeEl = document.getElementById('volRange');
         if (volRangeEl && document.activeElement !== volRangeEl) {
@@ -127,6 +151,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (document.getElementById('btToggle')) {
         window.refreshStatus = refreshStatus;
         refreshStatus();
-        setInterval(refreshStatus, 3000);
+        setInterval(refreshStatus, 1500);
     }
 });
