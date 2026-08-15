@@ -24,7 +24,7 @@ Hiển thị thông tin phần trăm sử dụng CPU và dung lượng RAM hiệ
 
 **Performance Goals**: Việc lấy thông số không được vượt quá 5% tải CPU.
 
-**Constraints**: Yêu cầu độ trễ cập nhật < 3s, tận dụng polling có sẵn trong `app.js`.
+**Constraints**: Yêu cầu độ trễ cập nhật < 2s, tận dụng polling có sẵn trong `app.js` (chuyển xuống chu kỳ 1.5s).
 
 **Scale/Scope**: Tối đa 1-2 thiết bị client theo dõi dashboard cùng lúc.
 
@@ -57,9 +57,9 @@ app/src/main/
 │   └── web/
 │       └── WebConfigServer.kt     # [MODIFY] Thêm trường cpu/ram vào /api/status
 └── assets/www/
-    ├── index.html                 # [MODIFY] Thêm DOM hiển thị CPU/RAM
-    ├── style.css                  # [MODIFY] Thêm style progress bar
-    └── app.js                     # [MODIFY] Update logic parse CPU/RAM vào DOM
+    ├── index.html                 # [MODIFY] Thêm DOM hiển thị CPU/RAM dạng Widget
+    ├── style.css                  # [MODIFY] Thêm style Widget & progress bar
+    └── app.js                     # [MODIFY] Update logic parse CPU/RAM vào DOM (đổi interval 1.5s)
 ```
 
 **Structure Decision**: Tính năng tích hợp trực tiếp vào dự án Android hiện tại. Sử dụng `SystemMonitor.kt` để tránh phình to `WebConfigServer.kt`, đồng thời tách bạch logic lấy thông số hệ thống khỏi logic web API.

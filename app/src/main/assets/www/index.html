@@ -58,32 +58,45 @@
             <div class="list-item"><div class="item-content"><div class="item-title" style="color:var(--text-muted)">Đang tải...</div></div></div>
         </div>
 
-        <div class="section-title">Hệ thống & Âm thanh</div>
-        <div class="list-group" style="margin-bottom: 20px;">
+        <div class="section-title">Âm thanh</div>
+        <div class="list-group" style="margin-bottom: 24px;">
             <div class="list-item" style="padding: 0;">
                 <div class="range-container" style="width:100%">
                     <svg class="range-icon" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
                     <input type="range" id="volRange" min="0" max="100" onchange="postApi('/api/volume?level='+this.value)">
                 </div>
             </div>
-            <div class="list-item">
-                <div class="item-content" style="width: 100%;">
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                        <span class="item-title">CPU</span>
-                        <span class="item-subtitle" id="cpuText">0%</span>
+        </div>
+
+        <div class="section-title">Hiệu suất</div>
+        <div style="display: flex; gap: 16px; margin-bottom: 24px;">
+            <!-- CPU Widget -->
+            <div class="list-group" style="flex: 1; margin: 0; padding: 16px; display: flex; flex-direction: column; justify-content: space-between;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px;">
+                    <div class="icon-box sys" style="background-color: var(--icon-sys); margin: 0; width: 32px; height: 32px; border-radius: 8px;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 18px; height: 18px;"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect><rect x="9" y="9" width="6" height="6"></rect><line x1="9" y1="1" x2="9" y2="4"></line><line x1="15" y1="1" x2="15" y2="4"></line><line x1="9" y1="20" x2="9" y2="23"></line><line x1="15" y1="20" x2="15" y2="23"></line><line x1="20" y1="9" x2="23" y2="9"></line><line x1="20" y1="14" x2="23" y2="14"></line><line x1="1" y1="9" x2="4" y2="9"></line><line x1="1" y1="14" x2="4" y2="14"></line></svg>
                     </div>
-                    <div class="progress-bar-bg">
+                    <span id="cpuText" style="font-size: 20px; font-weight: 700; font-family: monospace;">0%</span>
+                </div>
+                <div>
+                    <div style="font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 8px; letter-spacing: 0.5px;">TẢI CPU</div>
+                    <div class="progress-bar-bg" style="height: 6px; margin: 0;">
                         <div class="progress-bar-fill" id="cpuBar" style="width: 0%;"></div>
                     </div>
                 </div>
             </div>
-            <div class="list-item">
-                <div class="item-content" style="width: 100%;">
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                        <span class="item-title">RAM</span>
-                        <span class="item-subtitle" id="ramText">0 / 0 MB</span>
+
+            <!-- RAM Widget -->
+            <div class="list-group" style="flex: 1; margin: 0; padding: 16px; display: flex; flex-direction: column; justify-content: space-between;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px;">
+                    <div class="icon-box sys" style="background-color: var(--icon-led); margin: 0; width: 32px; height: 32px; border-radius: 8px;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" style="width: 18px; height: 18px;"><line x1="4" y1="10" x2="4" y2="10"></line><line x1="4" y1="14" x2="4" y2="14"></line><line x1="20" y1="10" x2="20" y2="10"></line><line x1="20" y1="14" x2="20" y2="14"></line><rect x="2" y="6" width="20" height="12" rx="2"></rect></svg>
                     </div>
-                    <div class="progress-bar-bg">
+                    <span id="ramText" style="font-size: 14px; font-weight: 700; font-family: monospace; text-align: right; line-height: 1.2;">0 / 0<br><span style="font-size: 11px; color: var(--text-muted);">MB</span></span>
+                </div>
+                <div>
+                    <div style="font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 8px; letter-spacing: 0.5px;">DUNG LƯỢNG RAM</div>
+                    <div class="progress-bar-bg" style="height: 6px; margin: 0;">
                         <div class="progress-bar-fill" id="ramBar" style="width: 0%;"></div>
                     </div>
                 </div>

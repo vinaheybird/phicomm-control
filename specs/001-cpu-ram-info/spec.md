@@ -21,7 +21,7 @@ Người dùng (Quản trị viên) muốn xem thông tin trạng thái CPU và 
 **Acceptance Scenarios**:
 
 1. **Given** người dùng truy cập vào trang dashboard, **When** trang tải xong, **Then** người dùng nhìn thấy các thẻ thông tin hiển thị % mức sử dụng CPU và % mức sử dụng RAM hiện tại.
-2. **Given** người dùng đang ở trên trang dashboard, **When** trạng thái CPU/RAM của thiết bị thay đổi theo thời gian, **Then** các thông số trên giao diện web tự động cập nhật liên tục (ví dụ: mỗi giây) mà không cần tải lại trang.
+2. **Given** người dùng đang ở trên trang dashboard, **When** trạng thái CPU/RAM của thiết bị thay đổi theo thời gian, **Then** các thông số trên giao diện web tự động cập nhật liên tục (cụ thể: mỗi 1.5 giây) mà không cần tải lại trang.
 
 ### Edge Cases
 
@@ -34,8 +34,8 @@ Người dùng (Quản trị viên) muốn xem thông tin trạng thái CPU và 
 
 - **FR-001**: Hệ thống MUST thu thập được thông tin mức độ sử dụng CPU hiện tại của thiết bị (tính bằng phần trăm).
 - **FR-002**: Hệ thống MUST thu thập được thông tin dung lượng RAM (tổng số, đã sử dụng, còn trống) của thiết bị.
-- **FR-003**: Hệ thống MUST truyền các dữ liệu CPU và RAM từ thiết bị lên giao diện web (dashboard) một cách định kỳ (ví dụ: mỗi giây).
-- **FR-004**: Giao diện web MUST hiển thị các thông tin này dưới dạng số liệu trực quan (phần trăm, hoặc thanh trạng thái).
+- **FR-003**: Hệ thống MUST truyền các dữ liệu CPU và RAM từ thiết bị lên giao diện web (dashboard) một cách định kỳ (cụ thể: mỗi 1.5 giây).
+- **FR-004**: Giao diện web MUST hiển thị các thông tin này dưới dạng widget vuông vức, xếp cạnh nhau (side-by-side) với số liệu nổi bật và thanh tiến trình gradient.
 
 ### Key Entities
 
@@ -51,7 +51,7 @@ Người dùng (Quản trị viên) muốn xem thông tin trạng thái CPU và 
 
 - **SC-001**: Thông tin CPU và RAM hiển thị trên giao diện web có độ trễ không quá 2 giây so với trạng thái thực tế của thiết bị.
 - **SC-002**: Việc thu thập và truyền dữ liệu CPU/RAM không làm tăng mức sử dụng CPU của chính thiết bị quá 5%.
-- **SC-003**: Dữ liệu hiển thị trực quan, người dùng có thể nắm bắt được tình trạng quá tải (ví dụ: >90% RAM hoặc CPU) ngay trong 3 giây đầu tiên nhìn vào giao diện.
+- **SC-003**: Dữ liệu hiển thị theo dạng Widget tối ưu hóa diện tích (iOS/macOS style), người dùng có thể nắm bắt được tình trạng quá tải (ví dụ: >90% RAM hoặc CPU) ngay trong 3 giây đầu tiên nhờ màu sắc cảnh báo (vàng/đỏ) trên giao diện.
 
 ## Assumptions
 
