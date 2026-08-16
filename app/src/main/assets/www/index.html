@@ -102,8 +102,29 @@
                 </div>
             </div>
         </div>
-        
 
+        <div class="section-title">Gemini AI</div>
+        <div class="list-group" style="margin-bottom: 24px;">
+            <div class="list-item" style="flex-direction: column; align-items: stretch; padding: 16px;">
+                <div style="font-size: 14px; color: var(--text); margin-bottom: 8px;">1. API Key:</div>
+                <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+                    <input type="password" id="geminiApiKey" class="input-field" placeholder="Nhập API Key từ AI Studio" style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-family: monospace;">
+                    <button class="btn" id="btnCheckGemini" onclick="checkGeminiKey()" style="white-space: nowrap;">
+                        <span class="loader" style="display:none;" id="loaderCheckGemini"></span> Quét Model
+                    </button>
+                </div>
+                
+                <div id="geminiModelContainer" style="display: none; margin-bottom: 12px;">
+                    <div style="font-size: 14px; color: var(--text); margin-bottom: 8px;">2. Chọn Model:</div>
+                    <select id="geminiModel" class="input-field" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text);"></select>
+                </div>
+
+                <button class="btn" id="saveGeminiBtn" onclick="saveGeminiConfig(this)" style="width: 100%; justify-content: center;">
+                    <span class="loader" id="loaderSaveGemini" style="display:none;"></span> Lưu Cấu Hình AI
+                </button>
+            </div>
+        </div>
+        
         
         <div style="margin-top: 40px;">
             <a href="/setup-wifi">

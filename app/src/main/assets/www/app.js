@@ -147,10 +147,155 @@ async function refreshStatus() {
     }
 }
 
+async function loadGeminiKey() {
+    try {
+        const res = await fetch('/api/gemini/config');
+        const d = await res.json();
+        if (d.success) {
+            if (d.hasKey) {
+                const el = document.getElementById('geminiApiKey');
+                if (el) el.value = "********";
+            }
+            if (d.modelName) {
+                // Just keep it in a global variable for now, will populate when they click Check
+                window.currentGeminiModel = d.modelName;
+            }
+        }
+    } catch(e) {}
+}
+
+async function checkGeminiKey() {
+    const key = document.getElementById('geminiApiKey').value;
+    if (!key) {
+        showToast("Vui lòng nhập API Key", true);
+        return;
+    }
+    
+    // If it's masked, we can't test it directly from browser, ask them to re-enter or we could test from backend
+    if (key === "********") {
+        showToast("Vui lòng nhập lại API Key thực tế để quét model", true);
+        document.getElementById('geminiApiKey').value = "";
+        return;
+    }
+
+    const btn = document.getElementById('btnCheckGemini');
+    const loader = document.getElementById('loaderCheckGemini');
+    btn.disabled = true;
+    loader.style.display = 'inline-block';
+    
+    try {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${key}`);
+        const data = await response.json();
+        
+        if (!response.ok) {
+            showToast("Lỗi API Key: " + (data.error?.message || "Unauthorized"), true);
+            return;
+        }
+
+        const models = data.models || [];
+        // Filter models that support generateContent and are Gemini models (exclude embedding, etc)
+        const validModels = models.filter(m => 
+            m.name.includes("gemini") && 
+            m.supportedGenerationMethods && 
+            m.supportedGenerationMethods.includes("generateContent")
+        );
+        
+        if (validModels.length === 0) {
+            showToast("API Key không có quyền truy cập model Gemini nào", true);
+            return;
+        }
+
+        const select = document.getElementById('geminiModel');
+        select.innerHTML = "";
+        
+        let foundCurrent = false;
+        
+        validModels.forEach(m => {
+            const shortName = m.name.replace("models/", "");
+            const option = document.createElement("option");
+            option.value = shortName;
+            option.text = `${m.displayName} (${shortName})`;
+            
+            if (window.currentGeminiModel === shortName) {
+                option.selected = true;
+                foundCurrent = true;
+            } else if (!foundCurrent && shortName.includes("flash")) {
+                // default to flash if possible
+                option.selected = true;
+            }
+            
+            select.appendChild(option);
+        });
+
+        document.getElementById('geminiModelContainer').style.display = 'block';
+        showToast("Quét Model thành công!", false);
+        
+    } catch (e) {
+        console.error(e);
+        showToast("Lỗi kết nối tới Google API", true);
+    } finally {
+        btn.disabled = false;
+        loader.style.display = 'none';
+    }
+}
+
+async function saveGeminiConfig(btn) {
+    const key = document.getElementById('geminiApiKey').value;
+    const modelContainer = document.getElementById('geminiModelContainer');
+    const model = document.getElementById('geminiModel').value;
+    
+    if (!key) {
+        showToast("Vui lòng nhập API Key", true);
+        return;
+    }
+    
+    if (modelContainer.style.display !== 'none' && !model) {
+        showToast("Vui lòng quét và chọn Model", true);
+        return;
+    }
+
+    const loader = document.getElementById('loaderSaveGemini');
+    btn.disabled = true;
+    loader.style.display = 'inline-block';
+    
+    try {
+        const formData = new URLSearchParams();
+        // If it's masked, don't update the key, just update the model
+        if (key !== "********") {
+            formData.append('apiKey', key);
+        }
+        if (modelContainer.style.display !== 'none') {
+            formData.append('modelName', model);
+        }
+        
+        const res = await fetch('/api/gemini/config', { 
+            method: 'POST',
+            body: formData,
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+        });
+        const d = await res.json();
+        showToast(d.message || "Đã lưu cấu hình", !d.success);
+        
+        if (d.success && key !== "********") {
+            document.getElementById('geminiApiKey').value = "********";
+            window.currentGeminiModel = model;
+        }
+    } catch(e) {
+        showToast("Lỗi lưu cấu hình", true);
+    } finally {
+        btn.disabled = false;
+        loader.style.display = 'none';
+    }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     if (document.getElementById('btToggle')) {
         window.refreshStatus = refreshStatus;
         refreshStatus();
         setInterval(refreshStatus, 1500);
     }
+    if (document.getElementById('geminiApiKey')) {
+        loadGeminiKey();
+    }
 });
+

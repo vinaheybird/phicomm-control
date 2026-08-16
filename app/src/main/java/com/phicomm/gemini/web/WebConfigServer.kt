@@ -7,6 +7,8 @@ import android.util.Log
 import com.google.gson.Gson
 
 import com.phicomm.gemini.bluetooth.BluetoothController
+import com.phicomm.gemini.api.GeminiClient
+import com.phicomm.gemini.audio.TtsManager
 import com.phicomm.gemini.utils.SystemMonitor
 
 import fi.iki.elonen.NanoHTTPD
@@ -47,6 +49,7 @@ class WebConfigServer(
     private val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
     private val gson = Gson()
     private val audioBuffer = java.io.ByteArrayOutputStream()
+    private val ttsManager = TtsManager(context)
 
     // Port firmware gốc Phicomm R1 dùng để nhận config WiFi
     private val PHICOMM_WIFI_API = "http://localhost:8989/api/configwifi"
@@ -116,7 +119,26 @@ class WebConfigServer(
                             val file = java.io.File(context.getExternalFilesDir(null), "query_${System.currentTimeMillis()}.wav")
                             Log.d(TAG, "End of audio stream. Decoding ${rawData.size} bytes...")
                             Thread {
-                                com.phicomm.gemini.audio.OpusDecoder.decodeToWav(rawData, file)
+                                val decodeSuccess = com.phicomm.gemini.audio.OpusDecoder.decodeToWav(rawData, file)
+                                if (decodeSuccess) {
+                                    Log.d(TAG, "Bắt đầu luồng gửi Gemini API...")
+                                    val prefs = context.getSharedPreferences("gemini_prefs", Context.MODE_PRIVATE)
+                                    val apiKey = prefs.getString("api_key", "") ?: ""
+                                    val modelName = prefs.getString("model_name", "gemini-1.5-flash") ?: "gemini-1.5-flash"
+                                    
+                                    if (apiKey.isEmpty()) {
+                                        Log.e(TAG, "Chưa cài đặt Gemini API Key! Bỏ qua gửi request.")
+                                    } else {
+                                        val responseText = GeminiClient.sendAudioQuery(file, apiKey, modelName)
+                                        if (responseText != null) {
+                                            ttsManager.speak(responseText)
+                                        } else {
+                                            Log.e(TAG, "Không nhận được phản hồi từ Gemini.")
+                                        }
+                                    }
+                                } else {
+                                    Log.e(TAG, "Lỗi khi decode Opus ra WAV, bỏ qua Gemini.")
+                                }
                             }.start()
                         }
                     }
@@ -183,6 +205,32 @@ class WebConfigServer(
             }
 
             when (uri) {
+                "/api/gemini/config" -> {
+                    val prefs = context.getSharedPreferences("gemini_prefs", Context.MODE_PRIVATE)
+                    if (method == Method.POST) {
+                        val apiKey = session.parameters["apiKey"]?.get(0)
+                        val modelName = session.parameters["modelName"]?.get(0)
+                        
+                        val editor = prefs.edit()
+                        if (!apiKey.isNullOrEmpty()) {
+                            editor.putString("api_key", apiKey)
+                        }
+                        if (!modelName.isNullOrEmpty()) {
+                            editor.putString("model_name", modelName)
+                        }
+                        editor.apply()
+                        
+                        responseMap["success"] = true
+                        responseMap["message"] = "Đã lưu cấu hình AI"
+                    } else {
+                        val key = prefs.getString("api_key", "") ?: ""
+                        val model = prefs.getString("model_name", "gemini-1.5-flash") ?: "gemini-1.5-flash"
+                        responseMap["success"] = true
+                        responseMap["hasKey"] = key.isNotEmpty()
+                        responseMap["modelName"] = model
+                    }
+                }
+
                 "/api/wifi/connect" -> {
                     val ssid = session.parameters["ssid"]?.get(0) ?: ""
                     val password = session.parameters["password"]?.get(0) ?: ""

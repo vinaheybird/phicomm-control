@@ -52,7 +52,9 @@ if ($installOutput -match "Success") {
     adb -s $DeviceID shell "am force-stop com.phicomm.gemini"
     # Start background service
     adb -s $DeviceID shell "am startservice -n com.phicomm.gemini/.PhicommGeminiService"
+    adb -s $DeviceID shell "am startservice -a com.phicomm.gemini.START_SERVICE"
     Write-Host "Đã xong! Bạn có thể vào Web Dashboard tại cổng 8080." -ForegroundColor Green
+    adb logcat -c
 } else {
     Write-Host "`n❌ Cài đặt thất bại! Vui lòng kiểm tra log ở trên." -ForegroundColor Red
     exit 1

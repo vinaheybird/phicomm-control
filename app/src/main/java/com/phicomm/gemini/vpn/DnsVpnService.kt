@@ -105,7 +105,7 @@ class DnsVpnService : VpnService() {
                     outputStream.write(response)
                     outputStream.flush()
                 } else {
-                    forwardToRealDns(packet, length, outputStream)
+                    resolveWithDoHAndReturn(domain, packet, length, outputStream)
                 }
             }
         } else {
@@ -117,29 +117,40 @@ class DnsVpnService : VpnService() {
         }
     }
 
-    private fun forwardToRealDns(packet: ByteArray, length: Int, outputStream: FileOutputStream) {
-        // Extract the raw UDP DNS payload
-        val buffer = java.nio.ByteBuffer.wrap(packet, 0, length)
-        val ihl = ((buffer.get(0).toInt() and 0xFF) and 0x0F) * 4
-        val dnsOffset = ihl + 8 // IP header + UDP header
-        val dnsLen = length - dnsOffset
-        
-        val dnsPayload = ByteArray(dnsLen)
-        System.arraycopy(packet, dnsOffset, dnsPayload, 0, dnsLen)
-
+    private fun resolveWithDoHAndReturn(domain: String, packet: ByteArray, length: Int, outputStream: FileOutputStream) {
+        val queryPacket = packet.copyOf(length)
         coroutineScope.launch {
             try {
-                val address = InetAddress.getByName(realDnsServer)
-                val udpPacket = DatagramPacket(dnsPayload, dnsPayload.size, address, 53)
-                forwardSocket.send(udpPacket)
-                
-                // For a robust implementation, we should listen for the response and map it back
-                // For PoC, this simple non-blocking send ensures the request is sent,
-                // but the response routing back to TUN requires a reverse mapping.
-                // Since we only care about hijacking the two domains, losing other DNS responses 
-                // temporarily is acceptable for a quick PoC test, but ideally we'd implement NAT here.
+                // Use 8.8.4.4 (Google DoH) which is NOT routed to the VPN
+                val url = java.net.URL("https://8.8.4.4/resolve?name=$domain")
+                val conn = url.openConnection() as javax.net.ssl.HttpsURLConnection
+                conn.setRequestProperty("Accept", "application/dns-json")
+                conn.connectTimeout = 3000
+                conn.readTimeout = 3000
+                // Trust the IP cert
+                conn.hostnameVerifier = javax.net.ssl.HostnameVerifier { _, _ -> true }
+
+                if (conn.responseCode == 200) {
+                    val responseStr = conn.inputStream.bufferedReader().use { it.readText() }
+                    // Match the first IPv4 in "data":"x.x.x.x"
+                    val matcher = java.util.regex.Pattern.compile("\"data\":\"(\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3})\"").matcher(responseStr)
+                    if (matcher.find()) {
+                        val ipStr = matcher.group(1)
+                        val parts = ipStr.split(".")
+                        val ipBytes = byteArrayOf(parts[0].toInt().toByte(), parts[1].toInt().toByte(), parts[2].toInt().toByte(), parts[3].toInt().toByte())
+                        Log.d(TAG, "DoH Resolved: $domain -> $ipStr")
+                        
+                        val dnsResponse = DnsPacket.createDnsResponse(queryPacket, length, ipBytes)
+                        outputStream.write(dnsResponse)
+                        outputStream.flush()
+                    } else {
+                        Log.d(TAG, "DoH: No IPv4 found for $domain")
+                    }
+                } else {
+                    Log.d(TAG, "DoH failed for $domain with code ${conn.responseCode}")
+                }
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to forward DNS", e)
+                Log.d(TAG, "DoH Error for $domain: ${e.message}")
             }
         }
     }
