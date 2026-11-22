@@ -1,130 +1,38 @@
-# Phicomm R1 Bluetooth Web Controller (Loa Bluetooth Điều Khiển Qua Trang Web)
+# Phicomm R1 Control — 4-Mic Xiaozhi AI + Bluetooth Coexistence
 
-Dự án chuyển đổi loa **Phicomm R1 (Feixun R1)** thành **Loa Bluetooth cao cấp điều khiển dễ dàng qua Trang Web (Web Controller)**. Hoạt động 100% bằng Dịch vụ Android ngầm chạy trực tiếp trên loa, cho phép bạn truy cập từ bất kỳ điện thoại hoặc máy tính nào cùng mạng Wi-Fi qua địa chỉ `http://phicomm.local:8080`.
+A clean-slate, single-APK Android application for the **Phicomm R1** smart speaker (Rockchip RK3229, Android 5.1.1 / API 22, 512 MB RAM).
 
----
-
-## TÍNH NĂNG NỔI BẬT
-
-1. **Bật / Tắt Bluetooth Chủ Động**:
-   - Công tắc (Toggle) bật/tắt phát sóng Bluetooth trực tiếp trên giao diện Web.
-
-2. **Quản Lý Kết Nối & Chuyển Đổi Thiết Bị Nhanh (1-Click Switch)**:
-   - Danh sách thiết bị Bluetooth đã ghép đôi hiển thị trực quan.
-   - Nút bấm **"Kết nối" 1-click** cho phép chuyển đổi nguồn phát nhạc giữa điện thoại, máy tính, máy tính bảng cực kỳ mượt mà.
-   - Nút **"Bật Dò Tìm" (Discoverable)** giúp thiết bị mới dễ dàng ghép đôi với loa trong 5 phút.
-   - Tính năng **Tự động kết nối lại (Auto-reconnect)** thiết bị vừa phát nhạc gần nhất khi bật Bluetooth hoặc khởi động loa.
-
-3. **Tắt Âm Thanh Thông Báo Bluetooth Quá To (Prompt Mute)**:
-   - Tự động tắt tiếng (mute) các âm thanh nói/thông báo giọng nói mặc định quá to của loa Phicomm R1 khi bật/tắt hoặc ngắt/kết nối Bluetooth.
-
-4. **Theo Dõi Hiệu Suất Trực Quan (CPU & RAM Monitor)**:
-   - Tích hợp thanh tiến trình theo dõi % CPU và dung lượng RAM (Đã dùng/Tổng) theo thời gian thực trực tiếp trên Web Dashboard (độ trễ < 2s).
-   - Thiết kế tối ưu, không ảnh hưởng đến hiệu năng của loa (Tiêu thụ CPU cực thấp để lấy mẫu).
-
-5. **Vô Hiệu Hóa App Rác Mặc Định (Phương Pháp Xiaozhi)**:
-   - Cung cấp sẵn script ADB tự động tắt (`pm hide` / `pm disable`) toàn bộ các ứng dụng rác mặc định của Phicomm (`com.phicomm.speaker.*`), giúp loa khởi động nhanh, giải phóng RAM và CPU tải chỉ <2%.
-   - ⚠️ **LƯU Ý QUAN TRỌNG**: Bạn **BẮT BUỘC** phải khởi động lại (reboot) loa sau khi ẩn app rác. Nếu không khởi động lại, dịch vụ `EchoService` vẫn kẹt trong RAM và sẽ tự động ngắt kết nối Bluetooth của bạn!
+This project replaces the discontinued stock Phicomm services while preserving the speaker's native **4-microphone far-field array, hardware Acoustic Echo Cancellation (AEC), and offline `"Xiao Xun Xiao Xun"` wake-word engine**, connecting directly to **Xiaozhi Cloud** for voice Q&A and internet music playback alongside **PC Bluetooth A2DP Sink** audio.
 
 ---
 
-## MỨC TIÊU THỤ ĐIỆN NĂNG
+## Architecture Highlights
 
-- **Chế độ chờ (Idle - Cắm điện 24/7)**: ~2W - 4W (Tiền điện chỉ khoảng **4.000 - 5.000 VNĐ / tháng**).
-- **Phát nhạc vừa phải**: ~5W - 8W.
-- **Phát nhạc tối đa công suất**: ~15W - 20W.
----
-
-## HƯỚNG DẪN CÀI ĐẶT QUA GITHUB (iSH SHELL / TERMUX / LINUX / MAC)
-
-Dành cho **iPhone/iPad** (App **iSH Shell**) & **Android** (**Termux**).  
-Do `curl` và pipe trực tiếp thường gặp lỗi trên iSH, hãy dùng lệnh `wget` 2 bước chuẩn dưới đây:
+- **Native 4-Mic + Hardware AEC:** Directly invokes the stock `/system/lib/libUni4micHalJNI.so` pipeline (`RK_MA4` 4-mic + 2-channel hardware AEC loopback) to produce clean 16 kHz PCM even while music is playing loudly.
+- **Stock Offline Wake-Word:** Reuses `/system/lib/libasrfix.so` and the stock `"Xiao Xun Xiao Xun"` acoustic/wakeup models for low-CPU, far-field wake-word detection.
+- **Xiaozhi Cloud Integration:** Full-duplex Opus WebSocket streaming (`api.tenclass.net` OTA activation + MCP JSON-RPC 2.0) for conversational AI and voice-commanded internet/server music playback.
+- **Bluetooth Coexistence:** PC Bluetooth A2DP Sink playback with deterministic AVRCP hard-pause when invoking AI and automatic resume once AI finishes responding.
+- **Basic LAN Web Dashboard:** Minimal clean-slate HTTP interface for live status, Bluetooth pairing/connect, Xiaozhi Cloud activation code & status, and master volume.
 
 ---
 
-### Lệnh Cài Đặt Tự Động (Dùng `wget` tương thích 100% trên iSH & Termux):
+## Spec-Driven Development (SpecKit)
 
-```bash
-wget -O install.sh https://raw.githubusercontent.com/vinaheybird/phicomm-control/main/install.sh && sh install.sh
-```
+This repository is standardized using **SpecKit**. All project rules, governance principles, and feature specifications are maintained in English:
 
-Hoặc nếu muốn truyền sẵn Tên Wi-Fi và Mật Khẩu nhà:
-```bash
-wget -O install.sh https://raw.githubusercontent.com/vinaheybird/phicomm-control/main/install.sh && sh install.sh "Tên_WiFi_Nhà" "Mật_Khẩu"
-```
+- **Workspace Rules:** [AGENTS.md](AGENTS.md)
+- **Project Constitution:** [.specify/memory/constitution.md](.specify/memory/constitution.md)
+- **Feature Specifications:** `specs/NNN-<feature-name>/`
+- **Reverse-Engineering Contracts:** `docs/re/`
 
----
+### Feature Roadmap
 
-### Quy Trình Tự Động Của Script:
-1. **Tải ADB & APK**: Tải file `PhicommGemini.apk` trực tiếp từ GitHub về máy.
-2. **Nhập Wi-Fi**: Script sẽ hỏi Tên & Mật Khẩu Wi-Fi nhà bạn (nếu chưa truyền vào).
-3. **Kết Nối Loa**: Bạn kết nối Wi-Fi máy/điện thoại vào Hotspot của loa (`Phicomm_R1_xxxx`) và nhấn **[ENTER]**.
-4. **Cài Đặt & Nối Wi-Fi**: Script tự động cài APK, ẩn app rác Phicomm cũ và phát Intent kết nối Wi-Fi nhà cho loa tức thì!
-
-Sau khi hoàn tất, kết nối điện thoại/máy tính về Wi-Fi nhà và truy cập:
-```http
-http://phicomm.local:8080
-```
----
-
-## GIAO DIỆN WEB DASHBOARD (`http://phicomm.local:8080`)
-
-Mở trình duyệt bất kỳ truy cập `http://phicomm.local:8080` (hoặc IP của loa) để điều khiển:
-- **Công tắc Bật/Tắt Bluetooth**
-- **Chọn & kết nối thiết bị Bluetooth 1-click**
-- **Công tắc Tắt âm thông báo Bluetooth to**
-- **Thanh trượt chỉnh âm lượng loa**
-- **Trực quan hóa % mức sử dụng CPU và RAM theo thời gian thực**
-
----
-
-## HƯỚNG DẪN BUILD APK BẰNG GRADLE (DÀNH CHO DEVELOPER)
-
-### 1. Yêu Cầu Môi Trường
-- **JDK 17** (Ví dụ: OpenJDK 17 tại `C:\Program Files\Microsoft\jdk-17...`)
-- **Android SDK** (Thường nằm tại `%LOCALAPPDATA%\Android\Sdk` hoặc `C:\Users\<user>\AppData\Local\Android\Sdk`)
-
----
-
-### 2. Các Lệnh Build APK Debug
-
-#### Trên Windows Command Prompt (CMD):
-```cmd
-set JAVA_HOME=C:\Program Files\Microsoft\jdk-17.0.19.10-hotspot
-set ANDROID_HOME=C:\Users\zkenz\AppData\Local\Android\Sdk
-gradlew.bat assembleDebug
-```
-
-#### Trên Windows PowerShell:
-```powershell
-$env:JAVA_HOME = "C:\Program Files\Microsoft\jdk-17.0.19.10-hotspot"
-$env:ANDROID_HOME = "$env:LOCALAPPDATA\Android\Sdk"
-
-# Cách 1: Gọi gradlew.bat qua cmd
-cmd /c "gradlew.bat assembleDebug"
-
-# Cách 2: Gọi trực tiếp binary Gradle (nếu gradlew.bat gặp lỗi wrapper path)
-$GRADLE_BIN = "$env:USERPROFILE\.gradle\wrapper\dists\gradle-8.5-bin\5t9huq95ubn472n8rpzujfbqh\gradle-8.5\bin\gradle.bat"
-& $GRADLE_BIN assembleDebug
-```
-
-#### Trên Linux / macOS:
-```bash
-export JAVA_HOME=/path/to/jdk-17
-export ANDROID_HOME=$HOME/Android/Sdk
-./gradlew assembleDebug
-```
-
----
-
-### 3. Vị Trí File APK Sau Khi Build
-File APK tạo ra tại:
-```
-app/build/outputs/apk/debug/app-debug.apk
-```
-
-Để cập nhật bản APK dùng cho các script tự động cài đặt, copy file sang `install_tools`:
-```powershell
-Copy-Item "app\build\outputs\apk\debug\app-debug.apk" "install_tools\PhicommGemini.apk" -Force
-```
-
+| Phase / Feature | Description | Status |
+| :--- | :--- | :--- |
+| **Phase 0** | Governance (`AGENTS.md`, `constitution.md`, `.gitignore`, `README.md`) | Completed |
+| `001-r1-re-audit` | Reverse-engineering audit of stock `Unisound.apk`, `EchoService.apk`, `Bluetooth.apk`, and audio/BT contracts | Completed |
+| `002-4mic-wakeup-engine` | Single-APK scaffold + `Uni4micHalJNI` 4-mic/AEC + `JniAsrFix` wake-word + Opus 16 kHz encoder | Next |
+| `003-bluetooth-audio-arbitration` | Bluetooth A2DP Sink + AVRCP Pause/Resume + Audio Arbitration State Machine + non-destructive stock app disabling | Planned |
+| `004-xiaozhi-cloud-client` | Xiaozhi Cloud OTA activation + full-duplex Opus WebSocket + TTS playback + barge-in | Planned |
+| `005-basic-web-dashboard` | Minimal clean-slate LAN Web Dashboard (status, BT pair/connect, Xiaozhi activation code, volume) | Planned |
+| `006-music-playback-mcp` | Xiaozhi MCP tools + internet/server music playback integrated with Bluetooth arbitration | Planned |
