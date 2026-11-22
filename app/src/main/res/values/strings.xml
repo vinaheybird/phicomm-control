@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">Phicomm R1 Control</string>
+    <string name="notification_title">Phicomm R1 Voice Engine</string>
+    <string name="notification_listening">Listening for Xiao Xun Xiao Xun (4-Mic AEC)</string>
+</resources>

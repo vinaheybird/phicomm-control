@@ -51,7 +51,7 @@ Verified from `assets/ml` (`models=asrfix,wakeup,extjsgf,net,defaultjsgf`, `am=a
 On first launch (or whenever `version` mismatches or a `.dat` file is missing/corrupt):
 1. Open `/system/app/Unisound/Unisound.apk` using `java.util.zip.ZipFile("/system/app/Unisound/Unisound.apk")`.
 2. Extract `assets/asrfix/data` -> `<filesDir>/asrfix_models/asrfix.dat`, `assets/wakeup/data` -> `<filesDir>/asrfix_models/wakeup.dat`, `assets/net/data` -> `<filesDir>/asrfix_models/net.dat`, and `assets/version/data` -> `<filesDir>/asrfix_models/version`.
-3. Validate each extracted `.dat` file using the native `JniAsrFix.crcCheck(filePath)` method (`0` = valid CRC, matching `com.unisound.sdk.ab.d(String)`).
+3. Validate each extracted file (`asrfix.dat`, `wakeup.dat`, `net.dat`) by verifying exact uncompressed byte length AND IEEE CRC-32 against the `Unisound.apk` ZIP entry header. *(Verified live on R1 and via `com.unisound.sdk.ab` disassembly: `ab.h` is always `false` in stock `Unisound.apk` v3.10.77, and calling legacy native `JniAsrFix.crcCheck()` on v3.10.77 assets returns non-zero.)*
 4. Ensure `<modelDir>` path passed as `amPath` ends with a trailing slash `/` (matching `com.unisound.sdk.ab.a`).
 
 ---
@@ -85,6 +85,19 @@ Verified from `dexdump.exe` disassembly of `cn.yunzhisheng.asrfix.JniAsrFix` in 
 | `crcCheck(String filePath)` | `(Ljava/lang/String;)I` | `private static native` | Verifies Unisound `.dat` file CRC (`0` = valid) |
 | `getVersion()` | `()Ljava/lang/String;` | `public static native` | Returns `libasrfix.so` engine version string |
 | `compileDecodeNet(String a, String b)` | `(Ljava/lang/String;Ljava/lang/String;)I` | `public static native` | Compiles JSGF decode net (not needed for stock wakeup) |
+| `loadGrammarStr(String grammar)` | `(Ljava/lang/String;)I` | `public native` | Required by `JNI_OnLoad` `RegisterNatives` (grammar compiler API) |
+| `unloadGrammar(String tag)` | `(Ljava/lang/String;)I` | `public native` | Required by `JNI_OnLoad` `RegisterNatives` |
+| `initUserDataCompiler(String path)` | `(Ljava/lang/String;)J` | `public native` | Required by `JNI_OnLoad` `RegisterNatives` |
+| `destroyUserDataCompiler(long h)` | `(J)V` | `public native` | Required by `JNI_OnLoad` `RegisterNatives` |
+| `loadCompiledJsgf(long h, String path)` | `(JLjava/lang/String;)I` | `public native` | Required by `JNI_OnLoad` `RegisterNatives` |
+| `compileUserData(long h, String a, String b, String c)` | `(JLjava/lang/String;Ljava/lang/String;Ljava/lang/String;)I` | `public native` | Required by `JNI_OnLoad` `RegisterNatives` |
+| `compileDynamicUserData(long h, String a, String b)` | `(JLjava/lang/String;Ljava/lang/String;)I` | `public native` | Required by `JNI_OnLoad` `RegisterNatives` |
+| `partialCompileUserData(long h, String a, String b, String c, String d, String e)` | `(JLjava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)I` | `public native` | Required by `JNI_OnLoad` `RegisterNatives` |
+| `getTagsInfo(long h)` | `(J)Ljava/lang/String;` | `public native` | Required by `JNI_OnLoad` `RegisterNatives` |
+| `grammarCompilerSetOptionInt(long h, int id, int val)` | `(JII)I` | `public native` | Required by `JNI_OnLoad` `RegisterNatives` |
+| `grammarCompilerGetOptionString(long h, int id)` | `(JI)Ljava/lang/String;` | `public native` | Required by `JNI_OnLoad` `RegisterNatives` |
+
+> **Critical `JNI_OnLoad` Note (Verified Live on R1)**: `libasrfix.so` registers all 32 native methods eagerly via `RegisterNatives` inside `JNI_OnLoad`. Omitting even unused public grammar-compiler methods causes `JNI_OnLoad` to return `JNI_ERR`. All 32 declarations MUST be present on `cn.yunzhisheng.asrfix.JniAsrFix`.
 
 ### 3.2 Native Return Codes & Error Mapping
 

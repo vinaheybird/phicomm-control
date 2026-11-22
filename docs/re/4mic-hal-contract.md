@@ -25,7 +25,14 @@ Verified via `cat /proc/asound/cards` and `ls -la /dev/snd/` on the live device:
 | Card 2 | `RKAK7755` | `/dev/snd/pcmC2D0p`, `/dev/snd/pcmC2D0c` | **`0777`** (`root:root`) | **AK7755 DSP speaker playback & capture** |
 | Card 3 | `RKSPDIFCARD` | `/dev/snd/pcmC3D0p` | `0660` (`system:audio`) | SPDIF output (unused on R1) |
 
-Because `/dev/snd/pcmC1D0c` has mode `0777` and `/system/lib/libUni4micHalJNI.so` has no package-name or signature verification, any standalone user-space Android APK targeting `armeabi-v7a` with `android.permission.RECORD_AUDIO` can directly load `libUni4micHalJNI.so` and capture hardware-AEC-cleaned 4-mic audio.
+> **CRITICAL SELinux Constraint (Verified Live on R1, 2026-11-22)**: Although `/dev/snd/pcmC1D0c` has Unix mode `0777` (`system:audio`) and `Uni4micHalJNI.init(1)` succeeds (`mic_num=4`, `echo_num=2`, `aec_on=1`, `boardVersion=UNI_4MIC_HAL_ANDROID_V1.1`), the stock Phicomm R1 firmware runs **SELinux in `Enforcing` mode** (`getenforce` = `Enforcing`). `/etc/security/mac_permissions.xml` assigns `seinfo=platform` (`domain=platform_app`) exclusively to APKs signed with Phicomm's `CN=R1` platform key (`Unisound.apk`). Standard third-party APKs run in `u:r:untrusted_app:s0`, which is blocked by SELinux when `libuni4michal.so` calls `open("/dev/snd/pcmC1D0c")` inside `openAudioIn(2)`:
+> ```text
+> avc: denied { search } for name="snd" dev="tmpfs" ino=7492 scontext=u:r:untrusted_app:s0 tcontext=u:object_r:audio_device:s0 tclass=dir permissive=0
+> [UNI_4MIC]:<ERR> Unable to open PCM card=1,device=0, (cannot open device '/dev/snd/pcmC1D0c': Permission denied)
+> ```
+> Consequently, direct in-process `openAudioIn()` from a third-party APK requires either:
+> 1. Running the speaker with a developer/rooted/permissive SELinux environment (or custom `sepolicy` allowing `untrusted_app` or a dedicated domain to access `audio_device`), **or**
+> 2. Using a privileged/system-domain audio bridge or stock-signed `platform_app` frontend.
 
 ### 1.2 Native Library Dependency Chain
 
@@ -39,6 +46,37 @@ Verified via ELF `DT_NEEDED` / strings inspection on `/system/lib/`:
 ### 1.3 Why Hardware AEC Works Across All Playback Sources
 
 In `libuni4michal.so`, `pcm_read_thread_proc` captures raw 32-bit I2S frames from `pcmC1D0c` containing both the 4 microphone signals (`file_4mic`) and the 2 hardware speaker loopback reference channels (`file_2aec`) simultaneously, then feeds them to `uni_hal_4mic_array_process`. Because the 2 AEC reference channels are tapped at the hardware I2S/DSP level (AK7755 output path), **echo cancellation operates identically regardless of whether speaker audio originates from Bluetooth A2DP Sink, local TTS `AudioTrack`, or streamed music (`MediaPlayer`/`ExoPlayer`)**.
+
+### 1.4 SELinux Enforcing Boundary, Firmware Prerequisites & Architectural Analysis (Verified 2026-11-22)
+
+Live deployment of our clean standalone APK (`com.phicomm.r1.control`) onto stock Phicomm R1 firmware (`ro.build.version.incremental=3448`, `LMY49F release-keys`, `ro.build.type=user`, `ro.debuggable=1`, `ro.secure=1`) empirically revealed a kernel-level SELinux boundary:
+
+- **What succeeds in `u:r:untrusted_app:s0`**:
+  - Loading `/system/lib/libUni4micHalJNI.so` and `/system/lib/libuni4michal.so`.
+  - `Uni4micHalJNI.init(1)` returns `0`, reporting `UNI_4MIC_HAL_ANDROID_V1.1`, `uni_hal_4mic_array_version=v2.3.0`, `mic_num=4`, `echo_num=2`, `aec_on=1`.
+  - `set4MicDebugMode(0)`, `close4MicAlgorithm(0)`, and `set4MicWakeUpStatus(0)` all return `0`.
+- **What is blocked by SELinux `Enforcing` in `u:r:untrusted_app:s0`**:
+  - `Uni4micHalJNI.openAudioIn(2)` calls TinyALSA `open("/dev/snd/pcmC1D0c")`. Although Unix permissions on `/dev/snd/pcmC1D0c` are `0777` (`system:audio`), the kernel enforces SELinux (`getenforce` = `Enforcing`) and denies `untrusted_app` directory traversal on `/dev/snd`:
+    ```text
+    avc: denied { search } for name="snd" dev="tmpfs" ino=7492 scontext=u:r:untrusted_app:s0 tcontext=u:object_r:audio_device:s0 tclass=dir permissive=0
+    [UNI_4MIC]:<ERR> Unable to open PCM card=1,device=0, (cannot open device '/dev/snd/pcmC1D0c': Permission denied)
+    ```
+  - Inspection of `/seapp_contexts` and `/etc/security/mac_permissions.xml` confirms that `<seinfo value="platform"/>` (`domain=platform_app`, which has SELinux permission to access `audio_device`) is mapped **exclusively** to APKs signed with Phicomm's private RSA key (`CN=R1`, SHA-256 `34:A2:D2:FE:89:96:56:AF:5D:F3:FB:F6:8E:80:54:77:B3:DF:37:08:CA:65:C8:42:BA:EC:2D:E8:E5:78:BC:33`).
+  - ADB shell on stock `3448` runs as `uid=2000(shell)` (`u:r:shell:s0`), so it does not hold root privilege to change SELinux state at runtime.
+
+#### Why Smali Patching or Java-Level Signature Hooking Does NOT Bypass This Boundary
+
+Evaluated against existing public GitHub Phicomm R1 projects:
+1. **Smali-patching `Unisound.apk` (e.g., `VRISE/feixun-r1`)**: Recompiling a patched `Unisound.apk` requires re-signing it with a new certificate (since Phicomm's private `CN=R1` key is unavailable). On unrooted stock `3448`, keeping package `com.phicomm.speaker.device` fails with `INSTALL_FAILED_UPDATE_INCOMPATIBLE`, while renaming the package still places the process in `u:r:untrusted_app:s0` and triggers the exact same SELinux `avc: denied` error. Smali-patched APKs therefore still require a rooted / custom firmware environment—where our clean Kotlin single-APK already works directly without smali maintenance debt.
+2. **Java `PackageManager` signature hooking (e.g., `sallaixu/R1-APP` `PmsHookBinderInvocationHandler`)**: Spoofing `PackageInfo.signatures` in Java only affects in-process Java SDK checks; it cannot alter the Linux kernel SELinux domain (`u:r:untrusted_app:s0`).
+
+#### Architectural Options & Project Decision
+
+| Option | Requires Rooted / Permissive `3448` Boot Image? | Preserves 4-Mic + Hardware AEC? | Summary |
+|---|---|---|---|
+| **Option A (Selected Architecture)** | **Yes** (one-time USB Loader/Maskrom flash of a rooted/permissive Android 5.1.1 `3448` boot image such as community `R1_rooted_boot.img` preserving `/system` Unisound `.so` libraries) | **Yes (100%)** | Clean single APK (`com.phicomm.r1.control`) directly invokes `libUni4micHalJNI.so` + `libasrfix.so` and streams 4-mic AEC-cleaned Opus directly to Xiaozhi Cloud. *(Do NOT flash Linux/Armbian if keeping Unisound 4-mic AEC, since `libUni4micHalJNI.so` and `libasrfix.so` require Android ARMv7 Bionic.)* |
+| **Option B (Stock-Signed `Unisound.apk` Frontend)** | No | Partial (via Unisound NLU protocol only) | Keeps unmodified stock `Unisound.apk` (`platform_app`) running and proxies its NLU HTTP/MQTT layer in LAN (similar to `r1-webui`), but cannot stream raw 4-mic PCM/Opus directly to Xiaozhi Cloud. |
+| **Option C (Standard `AudioRecord` via `mediaserver`)** | No | **No** | Works immediately on unrooted stock `3448` (similar to community `r1-xiaozhi` APKs), but loses 4-mic beamforming and 2-channel hardware AEC. |
 
 ---
 
