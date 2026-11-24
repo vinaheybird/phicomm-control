@@ -1,0 +1,76 @@
+Phicomm R1 Chuyên Dụng XiaoZhi —— Hướng Dẫn Cài Đặt Nhanh (V2.0.6)
+
+★ ĐIỀU KIỆN TIÊN QUYẾT: FIRMWARE CỦA LOA BẮT BUỘC PHẢI LÀ 3448
+   Công cụ này CHỈ hỗ trợ loa Phicomm R1 chạy firmware 3448. Trước khi cài đặt, vui lòng nâng cấp firmware lên 3448.
+   Nếu cài trên firmware không đúng, có thể gặp các lỗi:
+   - Không thể đánh thức bằng giọng nói (mất wake word)
+   - Mất âm thanh (loa câm, không phát tiếng)
+   - Không thể mở trang quản trị Web Console (cổng 8080).
+   Script cài đặt sẽ tự động kiểm tra phiên bản; nếu không phải 3448, menu cài đặt sẽ bị khóa, bạn phải nâng cấp firmware trước.
+
+Gói cài đặt này chỉ chứa các file phục vụ cài đặt:
+- Thư mục apps/: gồm 3 file APK
+- File script cài đặt: 一键安装.bat (hoặc Cai_Dat_Nhanh.bat)
+- Bộ 3 file ADB: adb.exe, AdbWinApi.dll, AdbWinUsbApi.dll
+- Tài liệu hướng dẫn: README.md, 说明.txt, Huong_Dan_Cai_Dat.txt, 安装使用说明_通用版.md
+
+Mã nguồn dự án: https://github.com/shj4588/Phicomm_R1_XiaoZhi_Client
+Server Media (Kho nhạc / Sách nói / Lịch sử phát): https://github.com/shj4588/MyXiaoZhi_MediaServer
+(Gói này không kèm mã nguồn và Docker server).
+
+Các điểm mới nổi bật trên bản V2.0.6 (so với V2.0.5):
+   · Lập tức lưu và báo cáo tiến độ khi: Tạm dừng / Dừng hẳn / Bấm phím cứng trên loa / Tắt nguồn. Bắt đầu phát là báo ngay, không cần chờ nhịp kế tiếp.
+   · Báo cáo tiến độ và lấy luồng phát đều kèm định danh thiết bị (MAC), chạy Docker không bị nhầm vào luồng Web.
+   · Định danh sách nói duy nhất: Sách theo bộ được lưu theo tên từng tập con (ví dụ "Khu Rừng Đen II"), tiến độ 3 tập không bị đè lên nhau.
+   · Đọc tên tập để phát bằng giọng nói: Nói tên tập nào phát đúng tập đó, không bị nhảy về tập đầu tiên của bộ sách.
+   · Đọc thời lượng / Tua nhanh / Tua lùi / Nhảy tới phút/giây bằng giọng nói:
+       "Tập này còn bao lâu", "Tua nhanh 5 phút", "Tua lùi 2 phút", "Nhảy đến phút thứ 20".
+       (Đài phát thanh trực tiếp không có điểm dừng sẽ thông báo không thể tua).
+   · Thứ tự tìm kiếm khi tiếp tục phát: Kho nội bộ (Local) → Bộ nhớ đệm (Cache) → Trực tuyến (Online).
+     Nếu kho nội bộ chỉ còn vài tập lẻ, hệ thống sẽ tự động chuyển sang bản Online, không báo "Không tìm thấy lịch sử phát".
+   · Chỉ cần nói tên sách là nghe tiếp: Nói tên sách sẽ tiếp tục đúng tập và số giây đã nghe dở lần trước (sách chưa từng nghe mới phát từ tập 1). Nếu muốn nghe từ đầu hãy nói "Phát từ tập 1". Tập 0 (giới thiệu/trailer) sẽ tự động bị bỏ qua khi xếp hàng phát.
+   · Đã khắc phục độ trễ nút bấm trên Web; bổ sung nút cứu tập thiếu; luồng giải mã từ server có hiển thị thời lượng và cho phép tua.
+   · Khi bấm "Tạm dừng thủ công" trên Web, XiaoZhi nói xong sẽ không tự động phát tiếp.
+
+============================================================
+CÁCH CÀI ĐẶT:
+============================================================
+1. Đảm bảo loa R1 đã bật tính năng gỡ lỗi mạng ADB (port 5555), và loa cùng mạng LAN/WiFi với máy tính.
+2. Nhấp đúp chuột vào file 一键安装.bat (hoặc Cai_Dat_Nhanh.bat).
+   (Lưu ý: Chạy trong CMD hoặc PowerShell của Windows. KHÔNG dùng Git Bash vì Git Bash sẽ nuốt mất dấu ngoặc kép trong lệnh).
+3. Nhập IP và cổng của loa, ví dụ: 192.168.2.5:5555 (nhấn Enter để dùng mặc định); nếu cắm cáp USB vào máy tính thì gõ: usb
+4. Tại Menu, chọn [1] Cài đặt nhanh toàn bộ, chờ script tự động chạy khoảng 2 phút.
+5. Sau khi cài xong, kiểm tra thông tin phiên bản in ra cuối cùng:
+   - device: V2.0.6
+   - player: pl-2.0.6
+   Hai dòng "Thời gian cài đặt trên loa" phải là thời gian vừa xong (nếu không khớp tức là chưa cài thành công).
+
+SAU KHI CÀI ĐẶT:
+6. Mở trình duyệt truy cập: http://<IP_Loa>:8080/
+   Vào thẻ "Kích hoạt" (Activate) ở trên đầu trang → Lấy mã kích hoạt 6 chữ số → Nhập vào server XiaoZhi để liên kết loa.
+7. Nếu bạn dùng server tự dựng (local private server), hãy dùng menu [6] để nhập lại địa chỉ server (cài mới APK sẽ xóa địa chỉ OTA cũ).
+8. Server MyXiaoZhi_MediaServer cần ≥ V1.7.55 để có tính năng "Chuyển mã âm thanh theo danh sách thiết bị":
+   Trong Web server phần "Nguồn âm thanh → Chuyển mã âm thanh", tích chọn R1 thì trang phát nhạc mới xuất hiện nhãn "Chuyển mã". Nếu không tích thì giữ nguyên định dạng gốc truyền thẳng.
+
+============================================================
+GIẢI THÍCH MENU CHỨC NĂNG:
+============================================================
+ [1] Cài đặt nhanh toàn bộ (so host + gói chính + console + khởi động) [Khuyến nghị]
+ [2] Chỉ cài / Cài lại so host       (XiaoZhi_SoHost_V2.0.1.apk)
+ [3] Chỉ cài / Nâng cấp gói chính    (XiaoZhi_Unisound_V2.0.6.apk)
+ [4] Chỉ cài / Nâng cấp gói console  (XiaoZhi_EchoService_V2.0.6.apk)
+ [5] Mở Web Console (:8080)
+ [6] Cài đặt địa chỉ Server (Chính thức / Tự dựng nội bộ)
+ [7] Khởi động lại XiaoZhi          [8] Khởi động lại loa (Reboot)
+ [9] Xem log hoạt động trên loa     [s] Mở adb shell
+ [v] Kiểm tra phiên bản (Phiên bản file apk + Thời gian cài đặt trên loa)
+ [0] Thoát
+
+LƯU Ý QUAN TRỌNG:
+- Bắt buộc phải cài đủ 3 file APK: XiaoZhi_Unisound (Gói chính), XiaoZhi_EchoService (Gói quản lý Web/Player), XiaoZhi_SoHost (Opus SO Host). Nếu thiếu SoHost thì loa không có thư viện nén âm thanh Opus từ mic để gửi lên server.
+- Web Console nằm ở cổng 8080. Sau khi cài, script sẽ đợi dịch vụ khởi động xong mới thông báo bạn mở trang Web.
+- Quá trình upload nếu bị lỗi do WiFi ADB chập chờn, script sẽ kiểm tra dung lượng và báo rõ ràng để bạn thử lại.
+- Âm lượng thử nghiệm nên để dưới 30% (mức player 0..15 → để tối đa mức 4) để tránh giật mình hoặc rè loa.
+- Mỗi khi cài đè gói APK, tiến trình phát nhạc sẽ khởi động lại → danh sách phát tạm thời bị xóa. Các mục: Yêu thích, Báo thức, "Chương trình của tôi" không bị ảnh hưởng.
+- Nâng cấp từ bản cũ có thể ghi đè trực tiếp, mọi cài đặt và yêu thích đều được giữ nguyên.
+- Từ khóa đánh thức mặc định: "XiaoZhi XiaoZhi" (Tiểu Trí), sau khi gọi hãy đợi tiếng "bíp" rồi mới nói câu lệnh.
